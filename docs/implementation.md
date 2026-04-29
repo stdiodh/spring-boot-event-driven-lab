@@ -26,6 +26,9 @@
 - `src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt`
 - `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`
 
+이 세 파일에는 `TODO 1`, `TODO 2`, `TODO 3` 형태의 순서형 힌트가 들어 있습니다.
+이번 브랜치에서는 브로커 설정 전체를 새로 짜지 않고, 핵심 이벤트 흐름만 손으로 따라치는 것이 목표입니다.
+
 ## 각 파일의 역할
 
 - `OrderCreatedEvent.kt`: 주문 생성 결과를 담아 다른 흐름으로 넘기는 이벤트 객체
@@ -91,6 +94,13 @@ docker compose up -d
 - 이벤트에는 왜 최소 정보만 담았나요?
 - 발행자와 소비자의 역할은 어떻게 다르나요?
 - 동기 호출이었다면 어떤 코드가 더 강하게 묶였을까요?
+
+## 다음 행동 정리
+
+1. `OrderCreatedEvent.kt`를 열어 이벤트가 어떤 사실을 담는지 봅니다.
+2. `EventPublisherService.kt`에서 브로커로 넘기는 한 줄을 연결합니다.
+3. `NotificationConsumer.kt`에서 소비 후 후속 작업을 분리합니다.
+4. `POST /event-orders`, `GET /event-orders/notifications` 순서로 흐름을 확인합니다.
 
 ## 강사 / PPT 체크 질문
 
