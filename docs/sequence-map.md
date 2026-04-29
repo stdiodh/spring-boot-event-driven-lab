@@ -2,24 +2,26 @@
 
 ## 현재 레포 위치
 
-- 이전 시퀀스: `10-cicd-and-operations-automation`
-- 현재 시퀀스: `11-refactoring-and-foundation-reinforcement`
-- 다음 시퀀스: `12-message-queue-and-event-driven-thinking`
+- 이전 시퀀스: `11-refactoring-and-foundation-reinforcement`
+- 현재 시퀀스: `12-message-queue-and-event-driven-thinking`
+- 다음 시퀀스: `-`
 
 ## 학습 연결
 
-### 10에서 가져오는 것
+### 11에서 가져오는 것
 
-- build / test / deploy / verify 자동화 감각
-- 운영과 문서 구조를 함께 정리하는 흐름
+- 역할이 정리된 서비스 구조
+- Validation, Exception Handling, 테스트를 함께 읽는 감각
+- 문서와 코드를 같이 보는 복습 습관
 
-### 11에서 새로 보는 것
+### 12에서 새로 보는 것
 
-- 기존 Service 다시 읽기
-- 역할이 섞인 부분 정리
-- Validation / Exception / 테스트 / 문서화 연결
+- 주문 생성 결과를 이벤트로 발행하는 흐름
+- 발행자와 소비자가 직접 메서드 호출로 묶이지 않는 구조
+- 동기 호출과 비동기 전달의 차이
+- 메시지 큐를 흐름 전달 장치로 이해하는 입문 감각
 
-### 12로 이어지는 것
+### 이번 레포에서 마무리되는 것
 
-- 정리된 구조를 바탕으로 이벤트 기반 사고를 가볍게 확장
-- 동기 요청/응답 중심 구조와 이벤트 흐름 비교
+- 백엔드 기본기 위에 이벤트 기반 사고를 한 번 확장해본 상태
+- 이후에는 운영 심화나 아키텍처 심화 트랙으로 별도 확장 가능
