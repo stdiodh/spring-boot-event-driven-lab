@@ -32,8 +32,7 @@ fun publishOrderCreated(event: OrderCreatedEvent) {
 }
 ```
 
-발행자는 이벤트를 브로커로 전달하는 역할만 맡습니다.  
-알림 처리나 후속 동작을 여기서 직접 하지 않는 것이 중요합니다.
+발행자는 이벤트를 브로커로 전달하는 역할만 맡습니다.
 
 ## 3. 소비 코드 정답
 
@@ -44,10 +43,9 @@ fun consumeOrderCreated(event: OrderCreatedEvent) {
 }
 ```
 
-소비자는 이벤트를 받아 후속 작업으로 연결합니다.  
-이번 예시에서는 후속 작업을 “알림 로그 기록”으로 최소화했습니다.
+소비자는 이벤트를 받아 후속 작업으로 연결합니다.
 
-## 4. 주문 → 알림 예시 흐름
+## 4. 주문 -> 알림 예시 흐름
 
 ```kotlin
 fun createOrder(request: OrderCreateRequest): OrderResponse {
@@ -60,7 +58,7 @@ fun createOrder(request: OrderCreateRequest): OrderResponse {
     eventPublisherService.publishOrderCreated(event)
 ```
 
-이 흐름의 핵심은 주문 서비스가 “결과를 발행”만 하고, 알림은 다른 쪽에서 소비한다는 점입니다.
+핵심은 주문 서비스가 결과를 발행만 하고, 알림은 다른 쪽에서 소비한다는 점입니다.
 
 ## 5. 동기 호출 버전과 MSA 관점 비교
 
@@ -76,10 +74,3 @@ fun createOrder(request: OrderCreateRequest): OrderResponse {
 - `NotificationConsumer`가 `@RabbitListener`로 이벤트를 받는가
 - `OrderService`가 알림을 직접 처리하지 않고 이벤트를 발행하는가
 - 알림 조회로 소비 결과를 확인할 수 있는가
-
-## 7. 자주 나는 실수
-
-- 이벤트에 너무 많은 데이터를 담는 경우
-- 소비자에서 주문 생성 로직까지 다시 처리하려는 경우
-- 발행 서비스가 후속 작업까지 직접 맡아버리는 경우
-- 메시지 큐를 “무조건 더 좋은 구조”로 오해하는 경우
