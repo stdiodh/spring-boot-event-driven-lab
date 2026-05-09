@@ -1,8 +1,8 @@
-# 이벤트 기반 사고 확장 정답 가이드
+# 이벤트 기반 사고 확장 참고 구현 가이드
 
-## 정답 흐름 요약
+## 참고 구현 흐름 요약
 
-정답 기준에서는 아래 파일이 핵심입니다.
+참고 기준에서는 아래 파일이 핵심입니다.
 
 - `OrderCreatedEvent.kt`
 - `EventPublisherService.kt`
@@ -11,7 +11,7 @@
 - `NotificationService.kt`
 - `EventConfig.kt`
 
-## 1. 이벤트 DTO 정답
+## 1. 이벤트 DTO 참고 구현
 
 ```kotlin
 data class OrderCreatedEvent(
@@ -24,7 +24,7 @@ data class OrderCreatedEvent(
 
 핵심은 이벤트에 최소 정보만 담는 것입니다.
 
-## 2. 발행 코드 정답
+## 2. 발행 코드 참고 구현
 
 ```kotlin
 fun publishOrderCreated(event: OrderCreatedEvent) {
@@ -34,7 +34,7 @@ fun publishOrderCreated(event: OrderCreatedEvent) {
 
 발행자는 이벤트를 브로커로 전달하는 역할만 맡습니다.
 
-## 3. 소비 코드 정답
+## 3. 소비 코드 참고 구현
 
 ```kotlin
 @RabbitListener(queues = ["\${event.order.queue}"])
@@ -67,7 +67,7 @@ fun createOrder(request: OrderCreateRequest): OrderResponse {
 - MSA 관점에서는 이 그림을 `주문 서비스 -> 이벤트 큐 -> 알림 서비스`로 설명할 수 있습니다.
 - 중요한 점은 이번 실습이 실제 다중 서비스 운영을 구현하는 것이 아니라, 그 구조에서 자주 쓰이는 이벤트 이동 방식을 먼저 보는 단계라는 점입니다.
 
-## 6. 강사가 빠르게 비교할 포인트
+## 6. 리뷰어가 빠르게 비교할 포인트
 
 - `OrderCreatedEvent`가 최소 필드만 가지는가
 - `EventPublisherService`가 `RabbitTemplate`으로 이벤트를 보내는가
