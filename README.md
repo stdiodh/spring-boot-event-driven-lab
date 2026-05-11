@@ -1,13 +1,7 @@
 # Spring Boot Event-Driven Lab
 
-이 레포는 A&I 백엔드 커리큘럼의 `12. 메시지 큐와 이벤트 기반 사고` 시퀀스를 담는 안내 브랜치입니다.
-
-## 이 레포의 역할
-
-- `main`은 안내 브랜치입니다.
-- 학생은 `12-implementation`에서 실습을 시작합니다.
-- 강사는 `12-answer`에서 정답과 비교합니다.
-- 이번 레포는 이벤트 발행과 소비의 최소 흐름만 다루고, 고급 메시징 운영은 다루지 않습니다.
+이 레포는 A&I 백엔드 커리큘럼의 `12. 메시지 큐와 이벤트 기반 사고` 시퀀스를 담는 토픽 레포입니다.
+`main`은 가이드 브랜치이고, 학생 실습은 `12-implementation`에서 시작합니다.
 
 ## 이 레포에서 배우는 것
 
@@ -17,28 +11,26 @@
 - 동기 호출과 비동기 전달 차이 이해하기
 - 서비스를 분리해서 본다면 이벤트가 큐를 통해 이동한다는 그림 이해하기
 
-## 브랜치 사용법
+## 시작 방법
 
-1. `main`에서 레포 목적과 브랜치 구조를 확인합니다.
-2. `12-implementation`으로 이동해 TODO starter를 따라갑니다.
-3. 실습을 마친 뒤 `12-answer`와 비교합니다.
+```bash
+git clone https://github.com/stdiodh/spring-boot-event-driven-lab.git
+cd spring-boot-event-driven-lab
+git checkout 12-implementation
+```
 
-## 문서 안내
+## 실습 브랜치
 
-- [레포 가이드](./docs/repo-guide.md)
-- [브랜치 가이드](./docs/branch-guide.md)
-- [시퀀스 맵](./docs/sequence-map.md)
-- [이론 문서](./docs/theory.md)
-- [구현 문서](./docs/implementation.md)
-- [정답 가이드](./docs/answer-guide.md)
-- [체크리스트](./docs/checklist.md)
-- [제공 자산 정리](./docs/assets.md)
+| 용도 | 브랜치 |
+| --- | --- |
+| 가이드 | `main` |
+| 학생 시작 | `12-implementation` |
+| 참고 정답 | `12-answer` |
 
-## 빠른 시작
+## 실행 방법
 
 ```bash
 docker compose up -d
-./gradlew test
 ./gradlew bootRun
 ```
 
@@ -46,3 +38,54 @@ docker compose up -d
 
 1. `POST /event-orders`
 2. `GET /event-orders/notifications`
+
+## 테스트 방법
+
+```bash
+./gradlew test
+```
+
+테스트가 확인하는 것:
+
+- 주문 생성 흐름에서 이벤트가 발행되는지 확인합니다.
+- 이벤트 핸들러 또는 consumer가 호출되는지 확인합니다.
+- 실패 케이스 또는 트랜잭션 경계가 테스트에 드러나는지 확인합니다.
+
+실패하면 먼저 볼 것:
+
+- 메시지 브로커가 필요한 테스트인지 test double로 충분한 테스트인지 구분합니다.
+- 이벤트 payload가 후속 처리에 필요한 최소 필드를 담는지 확인합니다.
+- 저장 성공과 발행 실패 사이의 기대 동작을 먼저 읽습니다.
+
+완료 기준:
+
+- 이벤트 발행, 핸들러 호출, 실패 케이스 또는 트랜잭션 경계 테스트가 통과합니다.
+
+## 정답과 비교하는 방법
+
+실습 중 막혔거나 완료 후 확인이 필요할 때만 참고 정답 브랜치와 비교합니다.
+
+```bash
+git fetch origin
+git diff 12-implementation..12-answer
+```
+
+## Visual Lab
+
+현재 `main` 가이드 브랜치에는 Visual Lab 진입점이 없습니다.
+Visual Lab을 구현할 경우 이 레포의 아래 위치를 사용합니다.
+
+```text
+docs/visual-lab/index.html
+```
+
+## 문서 안내
+
+- [레포 가이드](./docs/repo-guide.md)
+- [브랜치 가이드](./docs/branch-guide.md)
+- [시퀀스 맵](./docs/sequence-map.md)
+
+## 운영 메모
+
+GitHub default branch가 `12-answer`로 보이면 `main`으로 수동 변경해야 합니다.
+Codex는 원격 default branch를 직접 변경하지 않습니다.
