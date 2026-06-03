@@ -1,67 +1,215 @@
 # 이론 정리
 
-## 1. 왜 이 개념이 필요한가
+> 이번 시퀀스는 `POST /event-orders`로 주문 생성 결과를 만들고, 그 결과를 이벤트로 발행한 뒤, 소비자가 알림 기록으로 연결하는 흐름을 다룹니다. 목표는 메시징 운영 전체가 아니라 동기 호출과 이벤트 전달의 책임 차이를 이해하는 것입니다.
 
-처음에는 서비스끼리 직접 호출해도 흐름이 단순합니다.
-하지만 주문 생성 뒤 알림, 로그, 분석 이벤트처럼 후속 작업이 늘어나면 한 서비스가 너무 많은 책임을 갖기 쉽습니다.
+## 1. Problem - 왜 이벤트 기반 사고가 필요한가
 
-이번 시퀀스는 `주문 생성 -> 이벤트 발행 -> 알림 소비` 흐름을 통해 직접 호출과 이벤트 전달의 차이를 이해하는 단계입니다.
+처음에는 주문 생성 메서드가 알림 처리 메서드를 직접 호출해도 흐름이 단순합니다. 하지만 주문 생성 뒤 알림, 로그, 분석, 포인트 적립 같은 후속 작업이 늘어나면 주문 흐름이 여러 작업의 세부 구현을 알게 됩니다.
 
-## 2. 기존 방식의 한계
+이렇게 되면 주문 생성이 실패한 것인지, 후속 알림 처리가 실패한 것인지, 어디까지 같은 트랜잭션으로 봐야 하는지 설명하기 어려워집니다. 서비스가 나뉘는 환경에서는 한 서비스의 배포나 장애가 다른 서비스의 요청 처리 흐름까지 끌고 들어올 수 있습니다.
 
-주문 생성 코드가 알림 처리까지 직접 호출하면 주문 서비스는 알림 서비스의 존재와 호출 방식을 알아야 합니다.
-후속 작업이 더 붙을수록 주문 서비스는 계속 커지고, 알림 정책 변화도 주문 흐름에 영향을 주기 쉽습니다.
+이번 시퀀스에서는 주문 생성 결과를 `OrderCreatedEvent`라는 메시지로 표현하고, 발행자와 소비자를 나누어 후속 작업 결합을 줄이는 사고 방식을 연습합니다.
 
-이 구조는 작은 예제에서는 편하지만, 서비스를 나눠 운영한다고 가정하면 호출 관계가 점점 촘촘해집니다.
+## 2. Analyze - 어떤 기준으로 직접 호출과 이벤트 전달을 나눌 것인가
 
-## 3. 이번 시퀀스에서 선택한 접근
+직접 호출과 이벤트 전달은 어느 하나가 항상 더 좋은 방식이 아닙니다. 요청자가 즉시 결과를 알아야 하고 실패를 같은 흐름에서 처리해야 한다면 직접 호출이 더 단순합니다. 반대로 요청 결과를 다른 흐름이 나중에 처리해도 되고, 후속 작업이 늘어날 가능성이 높다면 이벤트 전달을 검토할 수 있습니다.
 
-- 주문 생성 결과를 이벤트로 표현합니다.
-- 발행자는 이벤트를 브로커로 보내는 역할에 집중합니다.
-- 소비자는 이벤트를 받아 알림 기록 같은 후속 작업을 수행합니다.
-- 메시지 큐는 발행자와 소비자를 느슨하게 이어주는 전달 장치로 봅니다.
+| 판단 기준 | 직접 호출이 어울리는 경우 | 이벤트 전달을 검토하는 경우 |
+|---|---|---|
+| 응답 필요성 | 호출자가 결과를 즉시 알아야 합니다. | 후속 작업 결과가 현재 응답에 직접 필요하지 않습니다. |
+| 책임 경계 | 같은 기능 안에서 함께 끝나야 합니다. | 주문 생성과 알림 기록처럼 책임을 분리할 수 있습니다. |
+| 장애 영향 | 후속 작업 실패가 요청 실패여야 합니다. | 후속 작업 실패를 별도 보상이나 재처리로 다룰 수 있습니다. |
+| 확장 가능성 | 후속 작업이 적고 변경 가능성이 낮습니다. | 소비자가 늘거나 정책이 독립적으로 바뀔 가능성이 있습니다. |
 
-이번 실습의 목표는 완전한 운영 구조가 아니라 이벤트 기반 사고 흐름을 익히는 것입니다.
+이번 실습은 실제 분산 트랜잭션이나 재처리 전략을 완성하지 않습니다. 대신 발행자, 메시지 큐, 소비자의 역할을 나누고 트랜잭션 경계에서 어떤 질문이 생기는지 확인합니다.
 
-## 4. 핵심 개념
+## 3. API / 실행 시퀀스 다이어그램
 
-### 동기 호출
+### 3.1 API 실행 흐름
 
-요청한 쪽이 상대 작업이 끝날 때까지 기다리는 방식입니다.
-흐름은 단순하지만 후속 작업이 많아질수록 호출 관계가 강하게 묶일 수 있습니다.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Controller as OrderEventController
+    participant OrderService
+    participant Publisher as EventPublisherService
+    participant Broker as RabbitMQ Exchange/Queue
+    participant Consumer as NotificationConsumer
+    participant Notification as NotificationService
 
-### 이벤트
+    Client->>Controller: POST /event-orders
+    Controller->>OrderService: createOrder(request)
+    OrderService->>OrderService: orderId 생성 및 요청 값 정리
+    OrderService->>Publisher: publishOrderCreated(event)
+    Publisher->>Broker: exchange + routing key로 이벤트 발행
+    Broker-->>Consumer: queue에서 이벤트 전달
+    Consumer->>Notification: record(event)
+    OrderService-->>Controller: OrderResponse
+    Controller-->>Client: 200 OK
+    Client->>Controller: GET /event-orders/notifications
+    Controller->>Notification: getAll()
+    Notification-->>Controller: notification list
+    Controller-->>Client: 알림 기록 응답
+```
 
-어떤 일이 일어났다는 사실을 담은 메시지입니다.
-이벤트는 다음 작업을 직접 강제하기보다 결과를 다른 흐름으로 전달하는 기준입니다.
+`POST /event-orders` 응답은 주문 생성 결과를 돌려줍니다. 알림 기록은 소비자가 이벤트를 처리한 뒤 `GET /event-orders/notifications`에서 확인합니다. 테스트에서는 실제 브로커를 항상 띄우기보다 `RabbitTemplate` 호출과 소비자 동작을 분리해서 확인할 수 있습니다.
 
-### 메시지 큐
+### 3.2 동기 직접 호출과 이벤트 전달 비교
 
-발행된 메시지를 전달하고 소비할 수 있게 도와주는 중간 장치입니다.
-발행자와 소비자가 직접 서로를 알지 않아도 흐름을 이어줄 수 있습니다.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant OrderService
+    participant NotificationService
+    participant Broker
+    participant NotificationConsumer
 
-### MSA 관점
+    rect rgb(244, 247, 251)
+        OrderService->>NotificationService: 직접 알림 처리 호출
+        NotificationService-->>OrderService: 처리 결과
+    end
 
-서비스가 나뉘면 한 서비스의 결과를 다른 서비스가 알아야 하는 장면이 많아집니다.
-이때 이벤트와 메시지 큐는 직접 호출을 줄이는 선택지 중 하나가 됩니다.
+    rect rgb(239, 246, 255)
+        OrderService->>Broker: 주문 생성 이벤트 발행
+        Broker-->>NotificationConsumer: 이벤트 전달
+        NotificationConsumer->>NotificationService: 알림 기록
+    end
+```
 
-## 5. 짧은 예제와 해설
+직접 호출은 추적이 쉽지만 주문 서비스가 알림 처리 방식을 알게 됩니다. 이벤트 전달은 흐름이 한 단계 늘어나지만 주문 서비스가 후속 작업 세부 구현을 직접 알 필요를 줄입니다.
 
-주문이 생성되면 주문 id, 사용자 id, 상품명, 안내 메시지처럼 후속 작업에 필요한 최소 정보만 이벤트로 넘깁니다.
-발행자는 알림을 직접 처리하지 않고, 소비자가 이벤트를 받아 알림 기록을 남깁니다.
+## 4. 계층 / DTO / 메시지 흐름
 
-이 흐름을 그림으로 말하면 `주문 생성 -> 이벤트 큐 -> 알림 처리`입니다.
+### 4.1 계층 흐름
 
-## 6. 다음 구현으로 연결되는 지점
+```mermaid
+flowchart LR
+    Client[Client] --> Controller[OrderEventController]
+    Controller --> OrderService[OrderService]
+    OrderService --> EventDTO[OrderCreatedEvent]
+    EventDTO --> Publisher[EventPublisherService]
+    Publisher --> Exchange[order.events]
+    Exchange --> Queue[notification.order-created]
+    Queue --> Consumer[NotificationConsumer]
+    Consumer --> NotificationService[NotificationService]
+    NotificationService --> NotificationDTO[NotificationMessageResponse]
+```
 
-이번 구현에서는 이벤트 DTO, 발행 서비스, 소비자를 직접 완성합니다.
-다음 단계에서는 이 흐름을 운영 환경, 장애 처리, 중복 소비 같은 더 현실적인 고민으로 확장할 수 있습니다.
+| 계층 | 주요 타입 | 책임 |
+|---|---|---|
+| API 경계 | `OrderCreateRequest`, `OrderResponse` | 주문 생성 요청을 받고 현재 요청의 응답을 반환합니다. |
+| 도메인 흐름 | `OrderService` | 주문 id를 만들고 주문 생성 결과를 이벤트로 표현합니다. |
+| 이벤트 메시지 | `OrderCreatedEvent` | 후속 알림 흐름에 필요한 최소 사실을 전달합니다. |
+| 발행 경계 | `EventPublisherService` | exchange와 routing key를 사용해 이벤트를 브로커로 보냅니다. |
+| 소비 경계 | `NotificationConsumer` | queue에서 이벤트를 받아 후속 알림 기록으로 연결합니다. |
+| 조회 응답 | `NotificationMessageResponse` | 소비 결과를 API 응답으로 확인할 수 있게 만듭니다. |
+
+### 4.2 DTO와 메시지 구분
+
+| 타입 | 이동 방향 | 담아야 할 내용 | 담지 말아야 할 내용 |
+|---|---|---|---|
+| `OrderCreateRequest` | Client -> API | 주문 생성에 필요한 입력 | 이벤트 처리 방식 |
+| `OrderResponse` | API -> Client | 현재 요청의 주문 생성 결과 | 알림 소비 내부 상태 |
+| `OrderCreatedEvent` | Producer -> Broker -> Consumer | 주문이 생성되었다는 사실과 후속 처리 최소 정보 | 알림 처리 로직, 소비자 전용 정책 |
+| `NotificationMessageResponse` | API -> Client | 소비자가 기록한 알림 결과 | 브로커 설정이나 routing key |
+
+이벤트는 명령 객체가 아니라 "이미 일어난 사실"을 전달하는 메시지입니다. 소비자가 어떤 방식으로 처리할지는 소비자 쪽 책임으로 남겨야 발행자와 소비자의 결합이 줄어듭니다.
+
+## 5. Action - 구현에서 연결할 지점
+
+### 5.1 `OrderCreatedEvent`에 최소 필드만 둡니다
+
+이벤트에는 주문 id, 사용자 id, 상품명, 메시지처럼 후속 알림 흐름이 이해할 수 있는 정보만 둡니다. 이벤트 필드가 많아질수록 소비자가 발행자의 내부 모델에 의존하기 쉬우므로, 이번 단계에서는 알림 기록에 필요한 범위로 제한합니다.
+
+확인 질문:
+
+- 소비자가 알림을 만들기 위해 꼭 필요한 값은 무엇인가요?
+- 이벤트에 처리 순서나 알림 정책을 넣고 있지는 않나요?
+- 요청 DTO를 그대로 이벤트로 넘기고 있지는 않나요?
+
+### 5.2 `EventPublisherService`는 발행만 맡습니다
+
+발행 서비스는 `RabbitTemplate`을 사용해 exchange와 routing key로 이벤트를 보냅니다. 이 계층에서 알림 기록을 직접 수행하면 발행자와 소비자 분리가 약해집니다.
+
+확인 질문:
+
+- 주문 생성 흐름은 이벤트 발행까지만 담당하나요?
+- 발행 서비스가 소비자의 저장 방식이나 알림 정책을 알고 있지는 않나요?
+- 발행 실패가 발생하면 현재 요청과 어떤 관계가 되는지 설명할 수 있나요?
+
+### 5.3 `NotificationConsumer`는 소비와 후속 연결을 맡습니다
+
+소비자는 queue에서 `OrderCreatedEvent`를 받고 `NotificationService`에 기록을 위임합니다. 이번 실습에서는 후속 작업을 알림 기록 정도로 제한하며, 재시도나 중복 소비 방지는 확장 주제로 남깁니다.
+
+확인 질문:
+
+- 소비자가 주문 생성 로직을 다시 수행하지 않나요?
+- 소비 결과를 `GET /event-orders/notifications`로 확인할 수 있나요?
+- 테스트에서 발행자와 소비자를 분리해서 검증할 수 있나요?
+
+## 6. Result - 무엇을 확인하고 어떤 한계가 남는가
+
+이번 시퀀스를 마치면 다음을 설명할 수 있어야 합니다.
+
+- 동기 직접 호출과 이벤트 전달의 차이
+- `OrderCreatedEvent`가 요청 DTO나 응답 DTO와 다른 이유
+- 발행자, 메시지 큐, 소비자가 각각 맡는 책임
+- 주문 생성 성공과 이벤트 발행 실패 사이의 트랜잭션 경계 질문
+- RabbitMQ가 없어도 단위 테스트로 확인할 수 있는 범위와 실제 실행으로 확인해야 하는 범위
+
+남는 한계도 명확히 둡니다. 이번 시퀀스는 중복 소비, 재처리, dead letter queue, outbox pattern, 분산 트랜잭션을 구현하지 않습니다. 이 주제들은 이벤트 기반 구조를 운영 환경에 올릴 때 다루는 확장 주제입니다.
+
+## 7. 실무 포인트
+
+- 이벤트 이름은 `OrderCreatedEvent`처럼 과거형 사실을 표현하면 소비자가 명령처럼 오해할 가능성이 줄어듭니다.
+- 이벤트 payload는 후속 처리에 필요한 최소 정보만 담습니다. 발행자의 내부 엔티티 전체를 넘기면 변경 영향이 커집니다.
+- 발행 성공과 데이터 저장 성공이 항상 함께 보장되는 것은 아닙니다. 실제 서비스에서는 outbox, 재시도, 보상 처리 같은 전략을 검토합니다.
+- 메시지 큐는 결합도를 낮출 수 있지만 운영 대상이 하나 더 생깁니다. 모니터링, 재처리, 중복 처리 방지가 필요합니다.
+- 테스트는 발행 호출, 소비자 처리, API 조회를 나누어 봅니다. 모든 테스트가 실제 RabbitMQ에 의존하면 피드백 속도가 느려질 수 있습니다.
+
+## 8. 용어 정리
+
+`Event`
+: 시스템에서 이미 일어난 일을 표현하는 메시지입니다. 이번 예시에서는 주문 생성 사실을 뜻합니다.
+
+`Producer`
+: 이벤트를 만드는 쪽입니다. 이번 흐름에서는 주문 생성 결과를 발행하는 서비스가 producer 역할을 합니다.
+
+`Consumer`
+: 이벤트를 받아 후속 작업을 수행하는 쪽입니다. 이번 흐름에서는 알림 기록을 남기는 소비자가 consumer 역할을 합니다.
+
+`Message Broker`
+: producer와 consumer 사이에서 메시지를 전달하는 중간 장치입니다. 이번 실습에서는 RabbitMQ를 사용합니다.
+
+`Exchange`
+: RabbitMQ에서 메시지를 받아 routing key 기준으로 queue에 전달하는 라우팅 지점입니다.
+
+`Queue`
+: consumer가 가져갈 메시지가 쌓이는 공간입니다.
+
+`Routing Key`
+: exchange가 메시지를 어느 queue로 보낼지 판단할 때 사용하는 값입니다.
+
+`Payload`
+: 메시지에 담겨 실제로 전달되는 데이터입니다. 이벤트 payload는 필요한 최소 사실을 담는 것이 좋습니다.
+
+`Idempotency`
+: 같은 이벤트가 여러 번 처리되어도 결과가 깨지지 않게 만드는 성질입니다. 이번 시퀀스에서는 개념만 언급하고 구현하지 않습니다.
+
+`Outbox Pattern`
+: DB 저장과 이벤트 발행 사이의 불일치를 줄이기 위한 패턴입니다. 이번 시퀀스에서는 확장 주제로 남깁니다.
+
+## 9. 다음 구현으로 연결되는 지점
+
+구현으로 넘어갈 때는 먼저 이벤트가 담아야 할 최소 정보를 말로 정리합니다. 그 다음 주문 생성 흐름이 이벤트를 발행하는지, 소비자가 알림 기록으로 연결하는지, API와 테스트로 흐름을 확인할 수 있는지 순서대로 확인합니다.
 
 <details>
 <summary>멘토용 설명 포인트</summary>
 
-- 이벤트 기반 구조가 모든 상황의 정답이라고 설명하지 않습니다.
-- 직접 호출이 단순한 경우도 있고, 이벤트 전달은 후속 작업 분리와 결합도 완화가 필요할 때 선택한다고 설명합니다.
-- starter 브랜치에서는 세부 구현을 먼저 보여주지 말고 이벤트에 어떤 정보가 필요한지 질문으로 유도합니다.
+- 이벤트 기반 구조를 모든 상황의 해법으로 설명하지 않고, 직접 호출이 더 단순한 경우도 함께 비교합니다.
+- 멘티가 먼저 `주문 생성 -> 이벤트 발행 -> 알림 소비` 흐름을 말로 설명하게 한 뒤 파일 역할을 연결합니다.
+- 힌트는 이벤트 payload, 발행자 책임, 소비자 책임 순서로 제공합니다.
+- 발행 실패와 주문 생성 성공이 갈라질 수 있다는 질문을 던지되, 운영 패턴 구현으로 범위를 넓히지는 않습니다.
 
 </details>
