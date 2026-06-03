@@ -14,7 +14,6 @@
 
 - [이론 문서](./docs/theory.md)
 - [구현 문서](./docs/implementation.md)
-- [참고 구현 가이드](./docs/answer-guide.md)
 - [체크리스트](./docs/checklist.md)
 - [제공 자산 정리](./docs/assets.md)
 
