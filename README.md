@@ -1,25 +1,74 @@
-# 이벤트 기반 사고 확장 참고 구현 브랜치
+# 12 이벤트 기반 사고 확장
 
-이 브랜치는 `주문 생성 -> 이벤트 발행 -> 알림 소비` 흐름을 직접 확인해보는 참고 구현 브랜치입니다.
+이 브랜치는 `12-answer` 참고 구현 브랜치입니다.
+`주문 생성 -> 이벤트 발행 -> 알림 소비` 흐름을 기준으로 직접 호출과 이벤트 전달의 차이를 비교합니다.
 
-## 이 레포에서 다루는 것
+## 이 시퀀스에서 다루는 문제
 
-- `OrderCreatedEvent` 만들기
-- 주문 생성 시 이벤트 발행하기
-- 다른 쪽에서 이벤트를 소비해 알림 흐름으로 연결하기
-- 메시지 큐를 흐름 전달 장치로 이해하기
-- 동기 호출과 비동기 전달 차이 비교하기
+주문 생성 이후 알림, 로그, 분석 같은 후속 작업이 늘어나면 한 서비스가 너무 많은 일을 알게 됩니다.
+이번 시퀀스는 주문 생성 결과를 이벤트로 발행하고, 소비자가 별도 흐름에서 알림을 처리하는 구조를 확인합니다.
 
-## 문서
+## 학습 목표
 
-- [이론 문서](./docs/theory.md)
-- [구현 문서](./docs/implementation.md)
-- [참고 구현 가이드](./docs/answer-guide.md)
-- [체크리스트](./docs/checklist.md)
-- [제공 자산 정리](./docs/assets.md)
+- `OrderCreatedEvent`가 어떤 정보를 담아야 하는지 설명합니다.
+- 발행자와 소비자의 책임을 구분합니다.
+- 메시지 큐가 발행자와 소비자를 느슨하게 연결하는 이유를 설명합니다.
+- 동기 호출과 이벤트 전달의 장단점을 비교합니다.
+- MSA 관점에서 `주문 서비스 -> 이벤트 큐 -> 알림 서비스` 흐름을 말로 설명합니다.
 
-## 핵심 파일
+## 멘티 시작 흐름
 
-- [`src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt`](./src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt)
-- [`src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt`](./src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt)
-- [`src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`](./src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt)
+starter 브랜치에서 먼저 이벤트 DTO, 발행 서비스, 소비자를 구현합니다.
+이 브랜치는 실습 후 코드 흐름과 리뷰 기준을 비교할 때 사용합니다.
+
+## 읽는 순서
+
+1. [이론 정리](./docs/theory.md)
+2. [구현 가이드](./docs/implementation.md)
+3. [체크리스트](./docs/checklist.md)
+4. [참고 구현 가이드](./docs/answer-guide.md)
+5. [제공 자산 정리](./docs/assets.md)
+
+## 실행 / 테스트 방법
+
+```bash
+docker compose up -d
+./gradlew test
+./gradlew bootRun
+```
+
+그 다음 아래 API 흐름을 확인합니다.
+
+```text
+POST /event-orders
+GET /event-orders/notifications
+```
+
+## 완료 기준
+
+- 테스트가 통과합니다.
+- 주문 생성 후 알림 소비 결과를 조회할 수 있습니다.
+- 주문 서비스가 알림 세부 처리까지 직접 맡지 않는 이유를 설명합니다.
+- 이벤트 기반 구조가 모든 상황의 정답은 아니라는 점도 함께 설명합니다.
+
+<details>
+<summary>멘토용 진행 포인트</summary>
+
+## 수업 전 확인
+
+- RabbitMQ 실행 환경과 테스트 실행 가능 여부를 먼저 확인합니다.
+- answer 브랜치 코드는 starter 실습 후 비교 기준으로 사용합니다.
+
+## 수업 중 질문
+
+- 이벤트에 꼭 필요한 정보와 넣지 않아도 되는 정보를 구분하게 합니다.
+- 발행자가 소비자의 후속 작업을 직접 알아야 하는지 질문합니다.
+- 직접 호출이 더 단순한 상황도 함께 비교합니다.
+
+## 리뷰 기준
+
+- `OrderCreatedEvent`가 최소 정보만 담는지 확인합니다.
+- `EventPublisherService`가 발행 책임에 집중하는지 확인합니다.
+- `NotificationConsumer`가 이벤트를 받아 후속 작업을 처리하는지 확인합니다.
+
+</details>
