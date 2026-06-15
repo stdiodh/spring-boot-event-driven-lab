@@ -1,104 +1,136 @@
 # 이벤트 기반 사고 확장 구현 가이드
 
-## 이 도메인이 필요한 이유
+## 1. 오늘 연결할 흐름
 
-이번 단계는 새 기능을 많이 만드는 것이 아니라, “직접 호출 말고 결과를 이벤트로 넘길 수도 있다”는 사고를 익히는 것이 중요합니다.
+이번 실습은 주문 생성 뒤 알림 기록을 이벤트로 분리합니다.
 
-## 학생이 완성할 최종 흐름
+1. `POST /event-orders`로 주문 생성 요청을 보냅니다.
+2. `OrderService`가 `OrderCreatedEvent`를 만듭니다.
+3. `EventPublisherService`가 이벤트를 RabbitMQ로 발행합니다.
+4. `NotificationConsumer`가 이벤트를 소비해 알림을 기록합니다.
+5. `GET /event-orders/notifications`로 알림 기록을 확인합니다.
 
-1. `OrderCreatedEvent`를 만듭니다.
-2. 주문 생성 흐름에서 이벤트를 발행합니다.
-3. 소비자가 이벤트를 받아 알림을 기록합니다.
-4. 주문 API와 알림 조회 API로 흐름을 실행해봅니다.
-5. 동기 호출이었다면 어떤 점이 더 불편했을지 비교합니다.
+## 2. 실제 코드 파일
 
-여기서 한 걸음 더 나가면,
-주문과 알림이 서로 다른 서비스라고 가정했을 때도 같은 그림으로 설명할 수 있어야 합니다.
+아래 파일만 기준으로 흐름을 읽습니다.
 
-## 학생이 직접 구현할 순서
-
-1. 이벤트 DTO를 만듭니다.
-2. 이벤트 발행 코드를 만듭니다.
-3. 이벤트 소비 코드를 만듭니다.
-4. 흐름을 실행해봅니다.
-5. 동기/비동기 차이를 비교합니다.
-
-## TODO를 넣을 파일
-
+- `src/main/kotlin/com/andi/rest_crud/controller/OrderEventController.kt`
+- `src/main/kotlin/com/andi/rest_crud/dto/OrderCreateRequest.kt`
+- `src/main/kotlin/com/andi/rest_crud/dto/OrderResponse.kt`
+- `src/main/kotlin/com/andi/rest_crud/dto/NotificationMessageResponse.kt`
 - `src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt`
+- `src/main/kotlin/com/andi/rest_crud/service/OrderService.kt`
 - `src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt`
 - `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`
+- `src/main/kotlin/com/andi/rest_crud/service/NotificationService.kt`
+- `src/main/kotlin/com/andi/rest_crud/config/EventConfig.kt`
 
-## 각 파일의 역할
+## 3. API 입구 확인
 
-- `OrderCreatedEvent.kt`: 주문 생성 결과를 담아 다른 흐름으로 넘기는 이벤트 객체
-- `EventPublisherService.kt`: 이벤트를 브로커로 보내는 역할
-- `NotificationConsumer.kt`: 이벤트를 받아 후속 작업을 수행하는 역할
-- `OrderService.kt`: 주문 생성 후 이벤트 발행까지 연결하는 역할
-- `NotificationService.kt`: 소비된 이벤트를 기록하고 조회하는 역할
-- `EventConfig.kt`: 브로커 연결에 필요한 최소 exchange / queue / binding 제공
+`OrderEventController.kt`가 이벤트 실습 API의 입구입니다.
 
-## 미리 제공할 것
+```kotlin
+@PostMapping
+@ResponseStatus(HttpStatus.CREATED)
+fun createOrder(@Valid @RequestBody request: OrderCreateRequest): OrderResponse {
+    return orderService.createOrder(request)
+}
+```
 
-- RabbitMQ 실행 환경
-- Producer / Consumer 기본 틀
-- 주문 생성 API와 알림 조회 API 뼈대
-- 기존 프로젝트 구조와 설정
+`POST /event-orders`는 주문을 만들고 이벤트 발행 흐름을 시작합니다.
+요청 body는 `OrderCreateRequest`의 `userId`, `productName`을 사용합니다.
 
-## 단계별 구현 안내
+알림 기록은 같은 Controller에서 조회합니다.
 
-### 1. 이벤트 DTO를 만듭니다
+```kotlin
+@GetMapping("/notifications")
+fun getNotifications(): List<NotificationMessageResponse> {
+    return notificationService.getAll()
+}
+```
 
-- `orderId`, `userId`, `productName`, `message` 정도의 최소 정보만 담습니다.
-- 이벤트는 “이 일이 일어났다”를 알려주는 사실 중심 메시지로 생각하면 됩니다.
+이 API는 `GET /event-orders/notifications`로 호출합니다.
 
-### 2. 이벤트 발행 코드를 만듭니다
+## 4. 이벤트 생성
 
-- `OrderService`가 주문 생성 결과를 이벤트로 만듭니다.
-- `EventPublisherService`는 그 이벤트를 RabbitMQ로 보내는 역할만 맡습니다.
-- 발행 서비스가 알림 처리까지 직접 하려고 하지 않는 것이 핵심입니다.
+`OrderService.kt`는 주문 번호를 만들고 `OrderCreatedEvent`를 생성합니다.
 
-### 3. 이벤트 소비 코드를 만듭니다
+```kotlin
+val event = OrderCreatedEvent(
+    orderId = orderId,
+    userId = request.userId.trim(),
+    productName = request.productName.trim(),
+    message = "주문 ${orderId}가 생성되어 알림을 보냅니다."
+)
+```
 
-- `NotificationConsumer`는 큐를 구독하고 이벤트를 받습니다.
-- 받은 이벤트는 `NotificationService`로 넘겨 후속 작업을 분리합니다.
-- 이번 실습에서는 실제 후속 작업을 “알림 기록” 정도로 최소화합니다.
+`OrderCreatedEvent`는 주문이 생성되었다는 사실과 후속 작업에 필요한 값만 담습니다.
+이벤트를 만든 뒤 `eventPublisherService.publishOrderCreated(event)`를 호출합니다.
 
-### 4. 흐름을 실행해봅니다
+## 5. 이벤트 발행
 
-- `POST /event-orders`로 주문을 생성합니다.
-- `GET /event-orders/notifications`로 소비 결과를 확인합니다.
-- 실행 순서는 동기 요청 하나처럼 보여도, 내부 후속 작업은 이벤트를 통해 분리됩니다.
+`EventPublisherService.kt`는 RabbitMQ로 이벤트를 보냅니다.
 
-### 5. 동기/비동기 차이를 비교합니다
+```kotlin
+fun publishOrderCreated(event: OrderCreatedEvent) {
+    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)
+}
+```
 
-- 동기 호출이었다면 주문 서비스가 알림 서비스까지 직접 알아야 했을 것입니다.
-- 이번 구조에서는 주문 생성 쪽은 이벤트만 발행하고, 알림 쪽이 따로 소비합니다.
-- MSA 관점에서는 이 흐름을 `주문 서비스 -> 이벤트 큐 -> 알림 서비스` 정도로 가볍게 설명하면 충분합니다.
+이 서비스는 알림을 직접 저장하지 않습니다.
+역할은 exchange와 routing key를 사용해 이벤트를 발행하는 데서 끝납니다.
 
-## 실행 확인 방법
+`EventConfig.kt`는 exchange, queue, binding, JSON converter를 설정합니다.
+이 설정 덕분에 `OrderCreatedEvent`가 메시지로 전달되고 소비자에서 다시 객체로 받을 수 있습니다.
+
+## 6. 이벤트 소비와 알림 기록
+
+`NotificationConsumer.kt`는 queue를 구독하고 이벤트를 받습니다.
+
+```kotlin
+@RabbitListener(queues = ["\${event.order.queue}"])
+fun consumeOrderCreated(event: OrderCreatedEvent) {
+    notificationService.record(event)
+}
+```
+
+소비자는 이벤트를 받은 뒤 `NotificationService.record(event)`를 호출합니다.
+`NotificationService.kt`는 `NotificationMessageResponse` 목록에 알림 메시지를 기록하고 `getAll()`로 조회 결과를 반환합니다.
+
+## 7. 실행 확인
+
+RabbitMQ를 먼저 실행합니다.
 
 ```bash
 docker compose up -d
+```
+
+테스트를 실행합니다.
+
+```bash
 ./gradlew test
+```
+
+서버를 실행합니다.
+
+```bash
 ./gradlew bootRun
 ```
 
-그 다음:
+주문 생성 API를 호출합니다.
 
-1. `POST /event-orders`
-2. `GET /event-orders/notifications`
+```text
+POST /event-orders
+```
 
-## 학생 체크 질문
+알림 조회 API를 호출합니다.
 
-- 왜 주문 서비스가 알림 서비스를 직접 호출하지 않았나요?
-- 이벤트에는 왜 최소 정보만 담았나요?
-- 발행자와 소비자의 역할은 어떻게 다르나요?
-- 동기 호출이었다면 어떤 코드가 더 강하게 묶였을까요?
+```text
+GET /event-orders/notifications
+```
 
-## 강사 / PPT 체크 질문
+구현을 마친 뒤 아래 diff로 비교합니다.
 
-- 주문 생성 → 이벤트 발행 → 알림 소비 그림이 있는가
-- 동기 호출과 비동기 전달 차이를 예시로 설명할 수 있는가
-- 메시지 큐가 왜 필요한지 입문 수준에서 말할 수 있는가
-- MSA가 무조건 답이 아니라는 점을 함께 설명할 수 있는가
+```bash
+git diff 12-implementation..12-answer
+```

@@ -2,6 +2,7 @@
 
 이 레포는 A&I 백엔드 커리큘럼의 `12. 메시지 큐와 이벤트 기반 사고` 시퀀스를 담는 토픽 레포입니다.
 `main`은 가이드 브랜치이고, 학생 실습은 `12-implementation`에서 시작합니다.
+GitHub에서 기본 브랜치가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 합니다.
 
 ## 이 레포에서 배우는 것
 
@@ -9,7 +10,7 @@
 - `EventPublisherService`로 브로커에 이벤트 보내기
 - `NotificationConsumer`로 후속 작업 분리하기
 - 동기 호출과 비동기 전달 차이 이해하기
-- 서비스를 분리해서 본다면 이벤트가 큐를 통해 이동한다는 그림 이해하기
+- 서비스를 분리해서 본다면 이벤트가 큐로 이동한다는 그림 이해하기
 
 ## 시작 방법
 
@@ -18,6 +19,8 @@ git clone https://github.com/stdiodh/spring-boot-event-driven-lab.git
 cd spring-boot-event-driven-lab
 git checkout 12-implementation
 ```
+
+clone 뒤에는 GitHub default branch 표시와 관계없이 `12-implementation`을 명시적으로 checkout합니다.
 
 ## 실습 브랜치
 
@@ -88,5 +91,6 @@ docs/visual-lab/index.html
 
 ## 운영 메모
 
-GitHub default branch가 `12-answer`로 보이면 `main`으로 수동 변경해야 합니다.
-Codex는 원격 default branch를 직접 변경하지 않습니다.
+정식 수업 운영에서는 `main`, `12-implementation`, `12-answer`만 사용합니다.
+GitHub default branch가 `12-answer`로 보이면 운영자가 GitHub Settings 또는 gh CLI로 `main`으로 수동 변경해야 합니다.
+Codex는 원격 default branch를 직접 변경하지 못합니다.
