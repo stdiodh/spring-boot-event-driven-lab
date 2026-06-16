@@ -47,23 +47,23 @@ window.visualLabData = {
       "id": "order-event-flow",
       "title": "주문 생성과 이벤트 전달 흐름",
       "summary": "API 요청은 주문 생성 결과를 만들고, 그 결과가 이벤트로 발행되어 소비자의 후속 작업으로 이어집니다.",
-      "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as EventOrderController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order-->>Controller: order result\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Broker-->>Consumer: deliver event\n  Consumer->>Log: save notification record\n  Controller-->>Client: order response",
+      "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as OrderEventController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order-->>Controller: order result\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Broker-->>Consumer: deliver event\n  Consumer->>Log: save notification record\n  Controller-->>Client: order response",
       "steps": [
         {
           "order": 1,
           "actor": "Client",
           "input": "POST /event-orders",
-          "owner": "EventOrderController",
+          "owner": "OrderEventController",
           "action": "주문 생성 요청을 Service로 전달합니다.",
           "output": "Order request",
           "note": "API 응답 흐름은 주문 생성 자체에 집중합니다.",
           "id": "order-event-flow-step-1",
           "from": "Client",
-          "to": "EventOrderController",
+          "to": "OrderEventController",
           "message": "주문 생성 요청을 Service로 전달합니다.",
           "messageKind": "request",
           "problem": "POST /event-orders",
-          "concept": "EventOrderController",
+          "concept": "OrderEventController",
           "check": "Order request",
           "codePointIds": [
             "event-dto",
@@ -72,14 +72,14 @@ window.visualLabData = {
         },
         {
           "order": 2,
-          "actor": "EventOrderController",
+          "actor": "OrderEventController",
           "input": "Order request",
           "owner": "OrderService",
           "action": "주문 id와 주문 생성 결과를 만듭니다.",
           "output": "Order result",
           "note": "주문 서비스는 후속 알림 세부 구현을 직접 알 필요를 줄입니다.",
           "id": "order-event-flow-step-2",
-          "from": "EventOrderController",
+          "from": "OrderEventController",
           "to": "OrderService",
           "message": "주문 id와 주문 생성 결과를 만듭니다.",
           "messageKind": "event",
@@ -250,9 +250,9 @@ window.visualLabData = {
   "flow": [
     {
       "id": "order-event-flow-step-1",
-      "label": "EventOrderController",
+      "label": "OrderEventController",
       "problem": "POST /event-orders",
-      "concept": "EventOrderController",
+      "concept": "OrderEventController",
       "action": "주문 생성 요청을 Service로 전달합니다.",
       "check": "Order request",
       "codePointIds": [
@@ -322,10 +322,10 @@ window.visualLabData = {
     {
       "id": "publish-consume",
       "title": "발행자와 소비자는 queue를 사이에 두고 분리됩니다",
-      "file": "src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt / NotificationConsumer.kt",
+      "file": "src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt",
       "language": "kotlin",
-      "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}\n\n@RabbitListener(queues = [\"${event.order.queue}\"])\nfun consumeOrderCreated(event: OrderCreatedEvent) {\n    notificationService.record(event)\n}",
-      "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 별도 소비자가 맡습니다.",
+      "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}",
+      "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`의 별도 소비자가 맡습니다.",
       "check": "발행 실패와 주문 저장 성공 사이의 경계를 설명할 수 있어야 합니다."
     }
   ],
@@ -364,9 +364,9 @@ window.visualLabData = {
       "question": "주문 생성 후 알림, 로그, 포인트 같은 후속 작업을 주문 흐름이 모두 알아야 할까?",
       "goal": "동기 직접 호출과 이벤트 전달을 비교하고, 이벤트 발행자와 소비자의 책임을 작은 예제로 이해합니다.",
       "source": {
-        "theory": "../theory.md",
-        "implementation": "../implementation.md",
-        "checklist": "../checklist.md"
+        "theory": "../../../theory.md",
+        "implementation": "../../../implementation.md",
+        "checklist": "../../../checklist.md"
       },
       "why": {
         "problem": "주문 생성 메서드가 알림 처리까지 직접 호출하면 후속 작업이 늘어날수록 주문 흐름이 여러 구현 세부사항을 알게 됩니다.",
@@ -391,23 +391,23 @@ window.visualLabData = {
           "id": "order-event-flow",
           "title": "주문 생성과 이벤트 전달 흐름",
           "summary": "API 요청은 주문 생성 결과를 만들고, 그 결과가 이벤트로 발행되어 소비자의 후속 작업으로 이어집니다.",
-          "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as EventOrderController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order-->>Controller: order result\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Broker-->>Consumer: deliver event\n  Consumer->>Log: save notification record\n  Controller-->>Client: order response",
+          "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as OrderEventController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order-->>Controller: order result\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Broker-->>Consumer: deliver event\n  Consumer->>Log: save notification record\n  Controller-->>Client: order response",
           "steps": [
             {
               "order": 1,
               "actor": "Client",
               "input": "POST /event-orders",
-              "owner": "EventOrderController",
+              "owner": "OrderEventController",
               "action": "주문 생성 요청을 Service로 전달합니다.",
               "output": "Order request",
               "note": "API 응답 흐름은 주문 생성 자체에 집중합니다.",
               "id": "order-event-flow-step-1",
               "from": "Client",
-              "to": "EventOrderController",
+              "to": "OrderEventController",
               "message": "주문 생성 요청을 Service로 전달합니다.",
               "messageKind": "request",
               "problem": "POST /event-orders",
-              "concept": "EventOrderController",
+              "concept": "OrderEventController",
               "check": "Order request",
               "codePointIds": [
                 "event-dto",
@@ -416,14 +416,14 @@ window.visualLabData = {
             },
             {
               "order": 2,
-              "actor": "EventOrderController",
+              "actor": "OrderEventController",
               "input": "Order request",
               "owner": "OrderService",
               "action": "주문 id와 주문 생성 결과를 만듭니다.",
               "output": "Order result",
               "note": "주문 서비스는 후속 알림 세부 구현을 직접 알 필요를 줄입니다.",
               "id": "order-event-flow-step-2",
-              "from": "EventOrderController",
+              "from": "OrderEventController",
               "to": "OrderService",
               "message": "주문 id와 주문 생성 결과를 만듭니다.",
               "messageKind": "event",
@@ -593,7 +593,7 @@ window.visualLabData = {
       ],
       "responsibilities": [
         {
-          "name": "EventOrderController",
+          "name": "OrderEventController",
           "role": "주문 생성 API 요청과 응답 경계를 담당합니다.",
           "caution": "알림 기록 세부 구현을 직접 알지 않습니다."
         },
@@ -734,10 +734,10 @@ window.visualLabData = {
         {
           "id": "publish-consume",
           "title": "발행자와 소비자는 queue를 사이에 두고 분리됩니다",
-          "file": "src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt / NotificationConsumer.kt",
+          "file": "src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt",
           "language": "kotlin",
-          "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}\n\n@RabbitListener(queues = [\"${event.order.queue}\"])\nfun consumeOrderCreated(event: OrderCreatedEvent) {\n    notificationService.record(event)\n}",
-          "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 별도 소비자가 맡습니다.",
+          "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}",
+          "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`의 별도 소비자가 맡습니다.",
           "check": "발행 실패와 주문 저장 성공 사이의 경계를 설명할 수 있어야 합니다."
         }
       ],
