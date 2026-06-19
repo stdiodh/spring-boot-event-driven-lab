@@ -5,8 +5,7 @@
 
 학생은 `12-implementation`에서 실습을 진행한 뒤, 막혔거나 완료 확인이 필요할 때만 `12-answer`와 비교합니다.
 멘토용 비교 포인트와 완성 구현 자료는 `12-answer`의 기본 문서 안에서 관리합니다.
-GitHub default branch가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 합니다.
-Codex는 원격 default branch를 직접 변경하지 못합니다.
+GitHub default branch는 `main`입니다.
 
 ## 현재 문서 위치
 

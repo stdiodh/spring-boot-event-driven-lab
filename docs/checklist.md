@@ -3,7 +3,6 @@
 ## 수업 전 확인
 
 - [ ] GitHub default branch가 `main`인지 확인했습니다.
-- [ ] default branch가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 함을 확인했습니다.
 - [ ] 학생 시작 브랜치가 `12-implementation`인지 확인했습니다.
 - [ ] 참고 정답 브랜치가 `12-answer`인지 확인했습니다.
 - [ ] `docker compose up -d`로 RabbitMQ를 실행했습니다.

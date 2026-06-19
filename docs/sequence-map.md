@@ -26,7 +26,6 @@
 1. 가이드 문서는 `main`에서 확인합니다.
 2. 실습은 `12-implementation`에서 시작합니다.
 3. 구현과 테스트가 끝나면 `12-implementation..12-answer` diff를 비교합니다.
-4. GitHub default branch가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 합니다.
 
 ### 이번 레포에서 마무리되는 것
 

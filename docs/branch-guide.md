@@ -4,7 +4,6 @@
 
 - 이 레포의 안내 브랜치입니다.
 - 레포 소개, 문서 안내, 브랜치 이동 방법을 제공합니다.
-- GitHub default branch가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 합니다.
 
 ## `12-implementation`
 
@@ -25,5 +24,4 @@
 ## 운영 메모
 
 정식 수업 운영에서는 `main`, `12-implementation`, `12-answer`만 사용합니다.
-Codex는 원격 default branch를 직접 변경하지 못합니다.
-운영자가 GitHub Settings 또는 gh CLI로 default branch를 `main`으로 변경해야 합니다.
+GitHub default branch는 `main`입니다.

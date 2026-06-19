@@ -27,8 +27,7 @@
 | 학생 시작 | `12-implementation` |
 | 참고 정답 | `12-answer` |
 
-GitHub default branch가 `12-answer`로 보이면 운영자가 `main`으로 수동 변경해야 합니다.
-Codex는 원격 default branch를 직접 변경하지 못합니다.
+GitHub default branch는 `main`입니다.
 
 ## 이 레포에서 깊게 다루지 않는 범위
 
