@@ -5,17 +5,21 @@ import com.andi.rest_crud.dto.PostCreateRequest
 import com.andi.rest_crud.dto.PostResponse
 import com.andi.rest_crud.dto.PostUpdateRequest
 import com.andi.rest_crud.exception.InvalidPostRequestException
+import com.andi.rest_crud.exception.ForbiddenPostAccessException
 import com.andi.rest_crud.exception.PostNotFoundException
 import com.andi.rest_crud.repository.PostRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
+@Transactional(readOnly = true)
 class PostService(
     private val postRepository: PostRepository
 ) {
 
-    fun create(request: PostCreateRequest): PostResponse {
-        val command = validateCreateRequest(request)
+    @Transactional
+    fun create(request: PostCreateRequest, authorEmail: String): PostResponse {
+        val command = validateCreateRequest(request, authorEmail)
         val savedPost = postRepository.save(buildPost(command))
         return toResponse(savedPost)
     }
@@ -29,16 +33,20 @@ class PostService(
         return toResponse(findPostById(id))
     }
 
-    fun update(id: Long, request: PostUpdateRequest): PostResponse {
+    @Transactional
+    fun update(id: Long, request: PostUpdateRequest, currentUserEmail: String): PostResponse {
         val post = findPostById(id)
-        val command = validateUpdateRequest(request)
+        validateAuthor(post, currentUserEmail)
+        val command = validateUpdateRequest(request, post.author)
         applyUpdate(post, command)
         val updatedPost = postRepository.save(post)
         return toResponse(updatedPost)
     }
 
-    fun delete(id: Long) {
+    @Transactional
+    fun delete(id: Long, currentUserEmail: String) {
         val post = findPostById(id)
+        validateAuthor(post, currentUserEmail)
         postRepository.delete(post)
     }
 
@@ -47,19 +55,19 @@ class PostService(
             .orElseThrow { PostNotFoundException(id) }
     }
 
-    private fun validateCreateRequest(request: PostCreateRequest): PostCommand {
+    private fun validateCreateRequest(request: PostCreateRequest, authorEmail: String): PostCommand {
         return validatePostFields(
             title = request.title,
             content = request.content,
-            author = request.author
+            author = authorEmail
         )
     }
 
-    private fun validateUpdateRequest(request: PostUpdateRequest): PostCommand {
+    private fun validateUpdateRequest(request: PostUpdateRequest, authorEmail: String): PostCommand {
         return validatePostFields(
             title = request.title,
             content = request.content,
-            author = request.author
+            author = authorEmail
         )
     }
 
@@ -101,7 +109,6 @@ class PostService(
     private fun applyUpdate(post: PostEntity, command: PostCommand) {
         post.title = command.title
         post.content = command.content
-        post.author = command.author
     }
 
     private fun toResponse(post: PostEntity): PostResponse = PostResponse.from(post)
@@ -111,4 +118,10 @@ class PostService(
         val content: String,
         val author: String
     )
+
+    private fun validateAuthor(post: PostEntity, currentUserEmail: String) {
+        if (!post.isWrittenBy(currentUserEmail)) {
+            throw ForbiddenPostAccessException(post.id)
+        }
+    }
 }
