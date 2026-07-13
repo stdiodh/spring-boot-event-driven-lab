@@ -15,8 +15,7 @@ class NotificationConsumerTest {
             OrderCreatedEvent(
                 orderId = 1L,
                 userId = "user-1",
-                productName = "keyboard",
-                message = "주문 1이 생성되었습니다."
+                productName = "keyboard"
             )
         )
 
@@ -24,6 +23,6 @@ class NotificationConsumerTest {
 
         assertEquals(1, notifications.size)
         assertEquals("user-1", notifications.first().userId)
-        assertEquals("주문 1이 생성되었습니다.", notifications.first().message)
+        assertEquals("주문 1번(keyboard)이 생성되었습니다.", notifications.first().message)
     }
 }
