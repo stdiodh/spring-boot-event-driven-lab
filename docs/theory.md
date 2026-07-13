@@ -79,8 +79,7 @@ fun publishOrderCreated(event: OrderCreatedEvent) {
 data class OrderCreatedEvent(
     val orderId: Long,
     val userId: String,
-    val productName: String,
-    val message: String
+    val productName: String
 )
 ```
 

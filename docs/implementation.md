@@ -59,8 +59,7 @@ fun getNotifications(): List<NotificationMessageResponse> {
 val event = OrderCreatedEvent(
     orderId = orderId,
     userId = request.userId.trim(),
-    productName = request.productName.trim(),
-    message = "주문 ${orderId}가 생성되어 알림을 보냅니다."
+    productName = request.productName.trim()
 )
 ```
 

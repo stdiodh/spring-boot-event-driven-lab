@@ -315,7 +315,7 @@ window.visualLabData = {
       "title": "Event DTO는 후속 처리에 필요한 최소 정보만 담습니다",
       "file": "src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt",
       "language": "kotlin",
-      "snippet": "data class OrderCreatedEvent(\n    val orderId: Long,\n    val userId: String,\n    val productName: String,\n    val message: String\n)",
+      "snippet": "data class OrderCreatedEvent(\n    val orderId: Long,\n    val userId: String,\n    val productName: String\n)",
       "explanation": "이벤트는 전체 주문 객체가 아니라 소비자가 필요한 최소 정보만 전달합니다.",
       "check": "불필요한 내부 상태를 이벤트 payload에 넣지 않았는지 봅니다."
     },
@@ -326,7 +326,7 @@ window.visualLabData = {
       "language": "kotlin",
       "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}",
       "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`의 별도 소비자가 맡습니다.",
-      "check": "발행 실패와 주문 저장 성공 사이의 경계를 설명할 수 있어야 합니다."
+      "check": "현재 예제에는 영속 주문 저장이 없으며 저장·발행 원자성은 후속 outbox 주제임을 구분합니다."
     }
   ],
   "concepts": [
@@ -727,7 +727,7 @@ window.visualLabData = {
           "title": "Event DTO는 후속 처리에 필요한 최소 정보만 담습니다",
           "file": "src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt",
           "language": "kotlin",
-          "snippet": "data class OrderCreatedEvent(\n    val orderId: Long,\n    val userId: String,\n    val productName: String,\n    val message: String\n)",
+          "snippet": "data class OrderCreatedEvent(\n    val orderId: Long,\n    val userId: String,\n    val productName: String\n)",
           "explanation": "이벤트는 전체 주문 객체가 아니라 소비자가 필요한 최소 정보만 전달합니다.",
           "check": "불필요한 내부 상태를 이벤트 payload에 넣지 않았는지 봅니다."
         },
@@ -738,7 +738,7 @@ window.visualLabData = {
           "language": "kotlin",
           "snippet": "fun publishOrderCreated(event: OrderCreatedEvent) {\n    rabbitTemplate.convertAndSend(exchangeName, routingKey, event)\n}",
           "explanation": "주문 생성 흐름은 이벤트를 발행하고, 알림 처리는 `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`의 별도 소비자가 맡습니다.",
-          "check": "발행 실패와 주문 저장 성공 사이의 경계를 설명할 수 있어야 합니다."
+          "check": "현재 예제에는 영속 주문 저장이 없으며 저장·발행 원자성은 후속 outbox 주제임을 구분합니다."
         }
       ],
       "problem": "주문 생성 메서드가 알림 처리까지 직접 호출하면 후속 작업이 늘어날수록 주문 흐름이 여러 구현 세부사항을 알게 됩니다."

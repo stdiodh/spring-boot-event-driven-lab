@@ -14,7 +14,7 @@ class NotificationService {
         notifications += NotificationMessageResponse(
             orderId = event.orderId,
             userId = event.userId,
-            message = event.message
+            message = "주문 ${event.orderId}번(${event.productName})이 생성되었습니다."
         )
     }
 
