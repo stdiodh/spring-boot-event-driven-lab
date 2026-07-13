@@ -140,7 +140,7 @@ flowchart LR
 
 ### 5.3 `NotificationConsumer`는 소비와 후속 연결을 맡습니다
 
-소비자는 queue에서 `OrderCreatedEvent`를 받고 `NotificationService`에 기록을 위임합니다. 이번 실습에서는 후속 작업을 알림 기록 정도로 제한하며, 재시도나 중복 소비 방지는 확장 주제로 남깁니다.
+소비자는 queue에서 `OrderCreatedEvent`를 받고 `NotificationService`에 기록을 위임합니다. 같은 `orderId`는 한 번만 기록하고, 재시작 후에도 유지되는 멱등성과 재시도는 확장 주제로 남깁니다.
 
 확인 질문:
 
@@ -158,7 +158,7 @@ flowchart LR
 - 주문 생성 성공과 이벤트 발행 실패 사이의 트랜잭션 경계 질문
 - RabbitMQ가 없어도 단위 테스트로 확인할 수 있는 범위와 실제 실행으로 확인해야 하는 범위
 
-남는 한계도 명확히 둡니다. 이번 시퀀스는 중복 소비, 재처리, dead letter queue, outbox pattern, 분산 트랜잭션을 구현하지 않습니다. 이 주제들은 이벤트 기반 구조를 운영 환경에 올릴 때 다루는 확장 주제입니다.
+남는 한계도 명확히 둡니다. 이번 시퀀스는 인메모리 `orderId` 중복 방지만 구현하며, 영속 멱등성, 재처리, dead letter queue, outbox pattern, 분산 트랜잭션은 구현하지 않습니다.
 
 ## 7. 실무 포인트
 
