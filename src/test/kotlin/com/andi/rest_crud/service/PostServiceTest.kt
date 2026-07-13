@@ -25,16 +25,16 @@ class PostServiceTest {
             id = 1L,
             title = request.title,
             content = request.content,
-            author = request.author
+            author = "owner@example.com"
         )
         `when`(postRepository.save(any(PostEntity::class.java))).thenReturn(savedPost)
 
-        val result = postService.create(request)
+        val result = postService.create(request, "owner@example.com")
 
         assertEquals(1L, result.id)
         assertEquals(request.title, result.title)
         assertEquals(request.content, result.content)
-        assertEquals(request.author, result.author)
+        assertEquals("owner@example.com", result.author)
     }
 
     @Test
@@ -51,7 +51,7 @@ class PostServiceTest {
         val invalidRequest = TestFixtureFactory.postCreateRequest(title = "   ")
 
         val exception = assertThrows(InvalidPostRequestException::class.java) {
-            postService.create(invalidRequest)
+            postService.create(invalidRequest, "owner@example.com")
         }
 
         assertEquals("title은 비어 있을 수 없습니다.", exception.errors["title"])
@@ -62,22 +62,21 @@ class PostServiceTest {
         val savedPost = TestFixtureFactory.postEntity(id = 7L)
         val updateRequest = TestFixtureFactory.postUpdateRequest(
             title = "  수정 제목  ",
-            content = "  수정 내용  ",
-            author = "  editor  "
+            content = "  수정 내용  "
         )
         val updatedPost = TestFixtureFactory.postEntity(
             id = 7L,
             title = "수정 제목",
             content = "수정 내용",
-            author = "editor"
+            author = "tester"
         )
         `when`(postRepository.findById(7L)).thenReturn(Optional.of(savedPost))
         `when`(postRepository.save(savedPost)).thenReturn(updatedPost)
 
-        val result = postService.update(7L, updateRequest)
+        val result = postService.update(7L, updateRequest, "tester")
 
         assertEquals("수정 제목", result.title)
         assertEquals("수정 내용", result.content)
-        assertEquals("editor", result.author)
+        assertEquals("tester", result.author)
     }
 }

@@ -20,8 +20,7 @@ class EventPublisherServiceTest {
         val event = OrderCreatedEvent(
             orderId = 1L,
             userId = "user-1",
-            productName = "keyboard",
-            message = "주문 1이 생성되었습니다."
+            productName = "keyboard"
         )
 
         eventPublisherService.publishOrderCreated(event)

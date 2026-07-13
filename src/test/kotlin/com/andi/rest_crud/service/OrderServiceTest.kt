@@ -2,7 +2,6 @@ package com.andi.rest_crud.service
 
 import com.andi.rest_crud.event.OrderCreatedEvent
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
 import com.andi.rest_crud.dto.OrderCreateRequest
@@ -39,6 +38,5 @@ class OrderServiceTest {
         assertEquals(response.orderId, eventCaptor.value.orderId)
         assertEquals("user-1", eventCaptor.value.userId)
         assertEquals("keyboard", eventCaptor.value.productName)
-        assertTrue(eventCaptor.value.message.contains("주문"))
     }
 }

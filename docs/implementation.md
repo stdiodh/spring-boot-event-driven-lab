@@ -24,8 +24,7 @@ starter 브랜치에서 먼저 구현한 뒤, 책임 분리와 이벤트 흐름�
 data class OrderCreatedEvent(
     val orderId: Long,
     val userId: String,
-    val productName: String,
-    val message: String
+    val productName: String
 )
 ```
 
