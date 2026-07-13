@@ -25,4 +25,14 @@ class NotificationConsumerTest {
         assertEquals("user-1", notifications.first().userId)
         assertEquals("주문 1번(keyboard)이 생성되었습니다.", notifications.first().message)
     }
+
+    @Test
+    fun `같은 주문 이벤트를 다시 받아도 알림은 한 번만 기록한다`() {
+        val event = OrderCreatedEvent(orderId = 1L, userId = "user-1", productName = "keyboard")
+
+        consumer.consumeOrderCreated(event)
+        consumer.consumeOrderCreated(event)
+
+        assertEquals(1, notificationService.getAll().size)
+    }
 }
