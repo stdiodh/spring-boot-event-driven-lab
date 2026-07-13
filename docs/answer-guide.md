@@ -17,12 +17,11 @@
 data class OrderCreatedEvent(
     val orderId: Long,
     val userId: String,
-    val productName: String,
-    val message: String
+    val productName: String
 )
 ```
 
-핵심은 이벤트에 최소 정보만 담는 것입니다.
+핵심은 이벤트에 발생한 사실만 담고 알림 표시 문구는 소비자가 만들게 하는 것입니다.
 
 ## 2. 발행 코드 참고 구현
 
