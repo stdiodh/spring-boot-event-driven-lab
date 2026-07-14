@@ -17,7 +17,7 @@
 | 판단 기준 | 참고 구현의 선택 | 리뷰할 지점 |
 |---|---|---|
 | 요청 응답 | `OrderResponse`는 주문 생성 결과만 반환합니다. | 알림 소비 결과를 주문 응답에 섞지 않았는지 봅니다. |
-| 이벤트 payload | `OrderCreatedEvent`는 주문 id, 사용자 id, 상품명, 메시지만 담습니다. | 소비에 필요한 최소 사실인지 확인합니다. |
+| 이벤트 payload | `OrderCreatedEvent`는 주문 id, 사용자 id, 상품명만 담습니다. | 소비에 필요한 최소 사실인지 확인합니다. |
 | 발행 책임 | `EventPublisherService`가 exchange와 routing key로 발행합니다. | 발행자가 소비자 내부 정책을 알지 않는지 봅니다. |
 | 소비 책임 | `NotificationConsumer`가 이벤트를 받아 알림 기록으로 넘깁니다. | 소비자가 주문 생성 로직을 다시 수행하지 않는지 봅니다. |
 | 트랜잭션 경계 | 메모리 주문 id 생성 후 이벤트를 발행합니다. | 영속 저장이 없으므로 실제 저장/발행 원자성은 outbox 같은 후속 주제로 구분합니다. |
@@ -128,7 +128,7 @@ flowchart LR
 
 ### 5.1 이벤트 payload 구성
 
-`OrderCreatedEvent`는 `orderId`, `userId`, `productName`, `message`를 담습니다. 후속 알림 기록에 필요한 정보만 포함하고, 알림 저장 방식이나 브로커 설정은 이벤트 안에 넣지 않습니다.
+`OrderCreatedEvent`는 `orderId`, `userId`, `productName`을 담습니다. 알림 문구는 소비자가 만들며, 알림 저장 방식이나 브로커 설정은 이벤트 안에 넣지 않습니다.
 
 리뷰 질문:
 
