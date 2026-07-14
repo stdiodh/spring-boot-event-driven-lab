@@ -15,7 +15,6 @@
 - [이론 문서](./docs/theory.md)
 - [구현 문서](./docs/implementation.md)
 - [체크리스트](./docs/checklist.md)
-- [제공 자산 정리](./docs/assets.md)
 
 ## 실습에서 직접 구현하는 핵심 파일
 
