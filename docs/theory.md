@@ -36,7 +36,7 @@ POST /event-orders
 
 주문 생성 요청은 `POST /event-orders`로 들어옵니다.
 `OrderService`는 주문 번호를 만들고 `OrderCreatedEvent`를 생성합니다.
-`EventPublisherService`는 이벤트를 RabbitMQ로 보내고, `NotificationConsumer`는 이벤트를 받아 알림 기록을 남깁니다.
+`EventPublisherService`는 이벤트를 RabbitMQ로 보내고, `NotificationConsumer`는 이벤트를 받아 알림 기록을 남깁니다. `NotificationService`는 같은 `orderId`를 key로 사용해 프로세스가 살아 있는 동안 중복 알림을 만들지 않습니다.
 알림 결과는 `GET /event-orders/notifications`로 확인합니다.
 
 ## 4. 핵심 코드로 연결하기
@@ -48,7 +48,7 @@ POST /event-orders
 - `src/main/kotlin/com/andi/rest_crud/service/OrderService.kt`: 주문 생성 뒤 이벤트를 만듭니다.
 - `src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt`: 이벤트를 RabbitMQ로 발행합니다.
 - `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`: queue에서 이벤트를 소비합니다.
-- `src/main/kotlin/com/andi/rest_crud/service/NotificationService.kt`: 소비된 이벤트를 알림 기록으로 저장합니다.
+- `src/main/kotlin/com/andi/rest_crud/service/NotificationService.kt`: 소비된 이벤트를 `orderId`별 알림으로 기록하고 인메모리 중복을 막습니다.
 - `src/main/kotlin/com/andi/rest_crud/config/EventConfig.kt`: exchange, queue, binding을 설정합니다.
 
 왜 이 코드를 보는지 먼저 정리합니다.
@@ -94,6 +94,8 @@ data class OrderCreatedEvent(
 이번 코드에서는 `EventPublisherService`가 발행자 역할을 하고, `NotificationConsumer`가 소비자 역할을 합니다.
 주문 생성 코드는 알림 저장 방식까지 직접 알지 않아도 됩니다.
 
+소비자는 같은 메시지를 다시 받을 수 있습니다. 현재 `NotificationService`는 `ConcurrentHashMap.putIfAbsent(...)`로 같은 `orderId`의 알림을 한 번만 기록하지만, 이 상태는 애플리케이션 재시작 후 사라지므로 운영 멱등성을 완성한 것은 아닙니다.
+
 ### 메시지 큐
 
 메시지 큐는 발행자와 소비자 사이에서 이벤트를 전달합니다.
@@ -101,13 +103,13 @@ data class OrderCreatedEvent(
 
 ## 6. 실행/테스트 결과로 확인할 것
 
-`docker compose up -d`로 RabbitMQ를 실행하고 `./gradlew test`로 발행/소비 테스트를 확인합니다.
+`docker compose up -d`로 RabbitMQ를 실행하고 `./gradlew test`로 발행/소비와 같은 `orderId` 중복 방지 테스트를 확인합니다.
 서버 실행 후 `POST /event-orders`를 호출하고 `GET /event-orders/notifications`로 소비 결과를 확인합니다.
 
 ## 7. 한계와 다음 개선 방향
 
-이번 구조는 후속 작업 분리를 보여주는 최소 예시입니다.
-운영 환경에서는 메시지 중복, 재시도, 순서, 실패 보상, 모니터링 기준을 추가로 설계해야 합니다.
+이번 구조는 후속 작업 분리와 인메모리 `orderId` 중복 방지를 보여주는 최소 예시입니다.
+운영 환경에서는 재시작 후에도 유지되는 멱등성, 재시도, 순서, 실패 보상, 모니터링 기준을 추가로 설계해야 합니다.
 
 ## 8. 확인 질문
 
@@ -115,4 +117,5 @@ data class OrderCreatedEvent(
 - `OrderCreatedEvent`에는 왜 주문 생성 사실과 후속 처리에 필요한 값만 담나요?
 - `EventPublisherService`와 `NotificationConsumer`를 나누면 어떤 의존이 줄어드나요?
 - 이벤트 기반 구조를 쓰면 어떤 운영 복잡도가 추가되나요?
+- 현재 중복 방지가 재시작 후 유지되지 않는 이유는 무엇인가요?
 - 이번 상황에서 직접 호출과 이벤트 전달 중 어떤 방식이 더 적절한지 설명할 수 있나요?

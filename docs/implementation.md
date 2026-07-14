@@ -94,7 +94,20 @@ fun consumeOrderCreated(event: OrderCreatedEvent) {
 ```
 
 소비자는 이벤트를 받은 뒤 `NotificationService.record(event)`를 호출합니다.
-`NotificationService.kt`는 `NotificationMessageResponse` 목록에 알림 메시지를 기록하고 `getAll()`로 조회 결과를 반환합니다.
+`NotificationService.kt`는 `orderId`를 key로 알림 메시지를 기록하고 `getAll()`로 조회 결과를 반환합니다.
+
+```kotlin
+notifications.putIfAbsent(
+    event.orderId,
+    NotificationMessageResponse(
+        orderId = event.orderId,
+        userId = event.userId,
+        message = "주문 ${event.orderId}번(${event.productName})이 생성되었습니다."
+    )
+)
+```
+
+같은 `orderId` 이벤트가 다시 전달되어도 현재 프로세스에서는 한 번만 기록합니다. 이 map은 재시작하면 사라지므로 영속 멱등성과 재처리는 별도 범위입니다.
 
 ## 7. 실행 확인
 

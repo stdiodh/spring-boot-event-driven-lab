@@ -8,10 +8,13 @@
 - `OrderCreatedEvent`로 어떤 일이 일어났는지 전달하기
 - `EventPublisherService`로 브로커에 이벤트 보내기
 - `NotificationConsumer`로 후속 작업 분리하기
+- 같은 `orderId`의 중복 알림을 인메모리에서 한 번만 기록하기
 - 동기 호출과 비동기 전달 차이 이해하기
 - 서비스를 분리해서 본다면 이벤트가 큐로 이동한다는 그림 이해하기
 
 ## 시작 방법
+
+starter는 RabbitMQ 실행 환경, 주문/알림 API, 이벤트 설정의 기본 틀을 제공합니다. 학생은 이벤트 DTO, 발행, 소비 흐름을 완성하며 고급 브로커 운영, outbox, 분산 트랜잭션은 범위에서 제외합니다.
 
 ```bash
 git clone https://github.com/stdiodh/spring-boot-event-driven-lab.git
@@ -52,6 +55,7 @@ docker compose up -d
 - 주문 생성 흐름에서 이벤트가 발행되는지 확인합니다.
 - 이벤트 핸들러 또는 consumer가 호출되는지 확인합니다.
 - 현재 단위 테스트가 발행 호출과 소비 결과를 확인하는 범위를 읽습니다.
+- 같은 `orderId` 이벤트를 두 번 소비해도 알림이 한 번만 기록되는지 확인합니다.
 
 실패하면 먼저 볼 것:
 
@@ -62,6 +66,7 @@ docker compose up -d
 완료 기준:
 
 - 이벤트 발행 호출과 소비 결과 테스트가 통과합니다.
+- 인메모리 중복 방지와 재시작 후에도 유지되는 영속 멱등성을 구분합니다.
 - 영속 저장과 발행의 트랜잭션 경계는 outbox 같은 후속 주제로 구분합니다.
 
 ## 정답과 비교하는 방법
@@ -84,9 +89,9 @@ docs/visual-lab/index.html
 
 ## 문서 안내
 
-- [레포 가이드](./docs/repo-guide.md)
-- [브랜치 가이드](./docs/branch-guide.md)
-- [시퀀스 맵](./docs/sequence-map.md)
+- [이론 정리](./docs/theory.md)
+- [구현 안내](./docs/implementation.md)
+- [체크리스트](./docs/checklist.md)
 - [Visual Lab](./docs/visual-lab/index.html)
 
 ## 운영 메모
