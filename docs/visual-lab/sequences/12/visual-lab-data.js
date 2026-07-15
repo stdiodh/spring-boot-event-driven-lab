@@ -9,6 +9,104 @@ window.visualLabData = {
     "kind": "event",
     "title": "Event Delivery Trace",
     "instruction": "직접 호출과 broker 전달을 비교하고, 현재 예제가 실제로 확인하는 발행·소비·중복 방지 범위를 구분하세요.",
+    "nodes": {
+      "client": {
+        "label": "Client",
+        "icon": "client",
+        "kind": "request actor",
+        "role": "주문 생성과 알림 조회 요청",
+        "boundary": "HTTP client"
+      },
+      "order-controller": {
+        "label": "OrderEventController",
+        "icon": "api",
+        "kind": "API boundary",
+        "role": "POST 주문 요청과 GET 알림 조회 입구",
+        "boundary": "Request/response",
+        "codePointIds": [
+          "publish-consume"
+        ]
+      },
+      "order-service": {
+        "label": "OrderService",
+        "icon": "service",
+        "kind": "producer service",
+        "role": "AtomicLong id와 주문 결과, event 생성",
+        "boundary": "Producer",
+        "codePointIds": [
+          "event-dto"
+        ]
+      },
+      "event-publisher": {
+        "label": "EventPublisherService",
+        "icon": "event",
+        "kind": "publisher",
+        "role": "exchange와 routing key로 event 발행",
+        "boundary": "Producer",
+        "codePointIds": [
+          "publish-consume"
+        ]
+      },
+      "rabbit-exchange": {
+        "label": "RabbitMQ exchange",
+        "icon": "broker",
+        "kind": "message router",
+        "role": "routing key와 binding으로 queue 선택",
+        "boundary": "Broker"
+      },
+      "notification-queue": {
+        "label": "Order event queue",
+        "icon": "queue",
+        "kind": "message queue",
+        "role": "consumer가 받을 event 보관",
+        "boundary": "Broker"
+      },
+      "notification-consumer": {
+        "label": "NotificationConsumer",
+        "icon": "consumer",
+        "kind": "event consumer",
+        "role": "queue event를 받아 알림 책임 호출",
+        "boundary": "Consumer",
+        "codePointIds": [
+          "publish-consume"
+        ]
+      },
+      "notification-service": {
+        "label": "NotificationService",
+        "icon": "service",
+        "kind": "consumer service",
+        "role": "orderId 기준 알림 생성과 조회",
+        "boundary": "Consumer"
+      },
+      "notification-memory": {
+        "label": "ConcurrentHashMap",
+        "icon": "memory",
+        "kind": "process-local state",
+        "role": "현재 process에서만 putIfAbsent 중복 방지",
+        "boundary": "In-memory state"
+      },
+      "notification-query": {
+        "label": "GET notifications API",
+        "icon": "api",
+        "kind": "observation boundary",
+        "role": "현재 process의 알림 결과 조회",
+        "boundary": "Observed result"
+      },
+      "duplicate-evidence": {
+        "label": "Duplicate skipped in process",
+        "icon": "evidence",
+        "kind": "limited idempotency evidence",
+        "role": "같은 orderId를 현재 process에서 한 건으로 유지",
+        "boundary": "In-memory evidence"
+      },
+      "publish-failure": {
+        "label": "Publish failure",
+        "icon": "evidence",
+        "kind": "failure evidence",
+        "role": "broker 도달 전 발행 호출 실패",
+        "boundary": "Producer"
+      }
+    },
     "scenarios": [
       {
         "id": "event-direct-call",
@@ -22,6 +120,39 @@ window.visualLabData = {
           "NotificationService",
           "Notification result"
         ],
+        "diagram": {
+          "caption": "이 lane은 현재 RabbitMQ 구현 경로가 아니라, 즉시 결과가 필요한 단순한 후속 작업을 직접 호출할 때의 결합 관계를 비교합니다.",
+          "lanes": [
+            {
+              "id": "direct-call-comparison",
+              "label": "비교안 · Direct call",
+              "description": "OrderService가 알림 구현을 직접 알고 같은 호출 흐름에서 결과를 받습니다.",
+              "steps": [
+                {
+                  "from": "order-service",
+                  "to": "notification-service",
+                  "verb": "후속 책임 직접 호출",
+                  "payload": "NotificationService dependency + order created data",
+                  "kind": "compare",
+                  "concept": "동기 결합"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "order-service",
+                  "verb": "즉시 결과 반환",
+                  "payload": "notification result",
+                  "kind": "response"
+                }
+              ]
+            }
+          ],
+          "notReached": [
+            {
+              "label": "RabbitMQ event path",
+              "reason": "직접 호출의 장단점을 비교하기 위한 개념 lane이므로 broker 구현은 사용하지 않습니다."
+            }
+          ]
+        },
         "snapshot": [
           {
             "label": "결합 관계",
@@ -54,6 +185,153 @@ window.visualLabData = {
           "NotificationService",
           "GET /event-orders/notifications"
         ],
+        "diagram": {
+          "caption": "주문 응답 lane과 비동기 event lane은 OrderService에서 갈라지며, 알림 소비 완료는 POST 응답의 선행 조건이 아닙니다.",
+          "lanes": [
+            {
+              "id": "order-response-lane",
+              "label": "Request → Order response",
+              "description": "주문 id를 만들고 event 발행 호출 뒤 OrderResponse를 반환하는 HTTP 흐름입니다.",
+              "steps": [
+                {
+                  "from": "client",
+                  "to": "order-controller",
+                  "verb": "주문 생성 요청",
+                  "payload": "POST /event-orders · {userId, productName}",
+                  "kind": "request"
+                },
+                {
+                  "from": "order-controller",
+                  "to": "order-service",
+                  "verb": "생성 위임",
+                  "payload": "createOrder(request)",
+                  "kind": "call"
+                },
+                {
+                  "from": "order-service",
+                  "to": "order-controller",
+                  "verb": "결과 반환",
+                  "payload": "OrderResponse { generated orderId, ORDER_CREATED }",
+                  "kind": "response",
+                  "check": "orderId는 AtomicLong으로 만들며 주문을 영속 저장하지 않습니다."
+                },
+                {
+                  "from": "order-controller",
+                  "to": "client",
+                  "verb": "HTTP 응답",
+                  "payload": "201 + OrderResponse JSON",
+                  "kind": "response"
+                }
+              ]
+            },
+            {
+              "id": "event-delivery-lane",
+              "label": "Producer → Broker → Consumer",
+              "description": "event payload가 exchange, binding, queue를 거쳐 별도 consumer 책임으로 전달됩니다.",
+              "steps": [
+                {
+                  "from": "order-service",
+                  "to": "event-publisher",
+                  "verb": "발행 책임 위임",
+                  "payload": "publishOrderCreated(OrderCreatedEvent { orderId, userId, productName })",
+                  "kind": "event",
+                  "codePointIds": [
+                    "event-dto"
+                  ]
+                },
+                {
+                  "from": "event-publisher",
+                  "to": "rabbit-exchange",
+                  "verb": "event 전송",
+                  "payload": "convertAndSend(exchange, routingKey, JSON event)",
+                  "kind": "event",
+                  "check": "publisher 단위 테스트는 convertAndSend 호출까지 확인합니다."
+                },
+                {
+                  "from": "rabbit-exchange",
+                  "to": "notification-queue",
+                  "verb": "binding으로 route",
+                  "payload": "routing key → order event queue",
+                  "kind": "event"
+                },
+                {
+                  "from": "notification-queue",
+                  "to": "notification-consumer",
+                  "verb": "event 전달",
+                  "payload": "OrderCreatedEvent",
+                  "kind": "event"
+                },
+                {
+                  "from": "notification-consumer",
+                  "to": "notification-service",
+                  "verb": "알림 기록 위임",
+                  "payload": "record(event)",
+                  "kind": "call",
+                  "codePointIds": [
+                    "publish-consume"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "notification-observation-lane",
+              "label": "Consumer state → Observation",
+              "description": "현재 process의 map에 기록된 결과를 별도 GET 요청으로 확인합니다.",
+              "steps": [
+                {
+                  "from": "notification-service",
+                  "to": "notification-memory",
+                  "verb": "중복 없이 기록",
+                  "payload": "putIfAbsent(orderId, notification)",
+                  "kind": "call",
+                  "check": "이 상태는 애플리케이션 process가 재시작되면 사라집니다."
+                },
+                {
+                  "from": "client",
+                  "to": "notification-query",
+                  "verb": "알림 조회",
+                  "payload": "GET /event-orders/notifications",
+                  "kind": "request"
+                },
+                {
+                  "from": "notification-query",
+                  "to": "notification-service",
+                  "verb": "조회 위임",
+                  "payload": "NotificationService.getAll()",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "notification-memory",
+                  "verb": "현재 상태 읽기",
+                  "payload": "ConcurrentHashMap values",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-memory",
+                  "to": "notification-service",
+                  "verb": "조회 결과 반환",
+                  "payload": "in-memory notification list",
+                  "kind": "response"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "notification-query",
+                  "verb": "목록 반환",
+                  "payload": "List<NotificationMessageResponse>",
+                  "kind": "response"
+                },
+                {
+                  "from": "notification-query",
+                  "to": "client",
+                  "verb": "HTTP 응답",
+                  "payload": "200 + notification list JSON",
+                  "kind": "response"
+                }
+              ]
+            }
+          ]
+        },
         "snapshot": [
           {
             "label": "확인 범위",
@@ -81,6 +359,102 @@ window.visualLabData = {
           "NotificationService.putIfAbsent(orderId)",
           "GET /event-orders/notifications"
         ],
+        "diagram": {
+          "caption": "같은 orderId가 재전달돼도 현재 process의 ConcurrentHashMap에서는 한 건을 유지하지만, 재시작 이후까지 보장하는 영속 멱등성은 아닙니다.",
+          "lanes": [
+            {
+              "id": "duplicate-consumption-lane",
+              "label": "Duplicate delivery → Process-local guard",
+              "description": "consumer가 같은 event를 다시 받아도 map key를 기준으로 현재 process 안에서만 중복을 막습니다.",
+              "steps": [
+                {
+                  "from": "notification-queue",
+                  "to": "notification-consumer",
+                  "verb": "같은 event 재전달",
+                  "payload": "same OrderCreatedEvent.orderId",
+                  "kind": "event"
+                },
+                {
+                  "from": "notification-consumer",
+                  "to": "notification-service",
+                  "verb": "다시 처리",
+                  "payload": "record(event)",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "notification-memory",
+                  "verb": "조건부 기록",
+                  "payload": "putIfAbsent(orderId)",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-memory",
+                  "to": "duplicate-evidence",
+                  "verb": "현재 process에서 비교",
+                  "payload": "same orderId → one map entry",
+                  "kind": "compare",
+                  "check": "재시작, 다중 instance, 영속 저장소 멱등성은 확인하지 않습니다."
+                }
+              ]
+            },
+            {
+              "id": "duplicate-observation-lane",
+              "label": "Observed result",
+              "description": "GET API가 반환하는 현재 map 상태로 한 건을 확인합니다.",
+              "steps": [
+                {
+                  "from": "client",
+                  "to": "notification-query",
+                  "verb": "알림 조회",
+                  "payload": "GET /event-orders/notifications",
+                  "kind": "request"
+                },
+                {
+                  "from": "notification-query",
+                  "to": "notification-service",
+                  "verb": "조회 위임",
+                  "payload": "NotificationService.getAll()",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "notification-memory",
+                  "verb": "process-local 상태 읽기",
+                  "payload": "ConcurrentHashMap values",
+                  "kind": "call"
+                },
+                {
+                  "from": "notification-memory",
+                  "to": "notification-service",
+                  "verb": "한 건 반환",
+                  "payload": "notification list",
+                  "kind": "response"
+                },
+                {
+                  "from": "notification-service",
+                  "to": "notification-query",
+                  "verb": "목록 반환",
+                  "payload": "List<NotificationMessageResponse>",
+                  "kind": "response"
+                },
+                {
+                  "from": "notification-query",
+                  "to": "client",
+                  "verb": "HTTP 응답",
+                  "payload": "200 + one notification JSON",
+                  "kind": "response"
+                }
+              ]
+            }
+          ],
+          "notReached": [
+            {
+              "label": "영속 멱등성",
+              "reason": "ConcurrentHashMap은 process 재시작 뒤 상태를 유지하지 않습니다."
+            }
+          ]
+        },
         "snapshot": [
           {
             "label": "중복 처리",
@@ -109,6 +483,50 @@ window.visualLabData = {
           "RabbitMQ",
           "NotificationConsumer"
         ],
+        "diagram": {
+          "caption": "OrderService는 event 발행을 마친 뒤 응답을 만들기 때문에 발행 호출이 실패하면 broker, consumer, OrderResponse에 도달하지 않습니다.",
+          "lanes": [
+            {
+              "id": "publish-failure-lane",
+              "label": "Producer failure boundary",
+              "description": "현재 예제에는 주문 영속 저장과 발행을 하나로 묶는 원자적 경계가 없습니다.",
+              "steps": [
+                {
+                  "from": "order-service",
+                  "to": "event-publisher",
+                  "verb": "발행 위임",
+                  "payload": "publishOrderCreated(OrderCreatedEvent { orderId, request fields })",
+                  "kind": "event",
+                  "codePointIds": [
+                    "event-dto"
+                  ]
+                },
+                {
+                  "from": "event-publisher",
+                  "to": "publish-failure",
+                  "verb": "발행 호출 실패",
+                  "payload": "convertAndSend did not complete",
+                  "kind": "failure",
+                  "check": "영속 주문 저장, outbox, retry를 해결한 것으로 해석하지 않습니다."
+                }
+              ]
+            }
+          ],
+          "notReached": [
+            {
+              "label": "RabbitMQ exchange와 queue",
+              "reason": "broker 수신 증거가 없어 event 전달을 확정할 수 없습니다."
+            },
+            {
+              "label": "NotificationConsumer",
+              "reason": "queue에 event가 도달하지 않아 consumer 후속 책임이 시작되지 않습니다."
+            },
+            {
+              "label": "OrderResponse",
+              "reason": "현재 OrderService는 publish 호출 뒤 응답을 반환하므로 발행 예외 시 응답 생성까지 진행하지 않습니다."
+            }
+          ]
+        },
         "snapshot": [
           {
             "label": "트랜잭션 경계",
