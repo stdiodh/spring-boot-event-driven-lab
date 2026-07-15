@@ -1,58 +1,51 @@
+<a id="seq-12"></a>
+
 # 이벤트 기반 사고 확장
 
-## 1. 주문 생성 뒤에 일이 늘어나면 무엇이 문제일까?
+## 1. 주문 응답과 후속 작업을 같은 흐름에 둘까?
 
-처음에는 주문을 만들고 응답을 주는 흐름만 있어도 됩니다.
-하지만 주문 생성 뒤에 알림, 로그, 분석 같은 후속 작업이 계속 늘어나면 주문 서비스가 너무 많은 일을 알게 됩니다.
+후속 작업이 하나이고 즉시 결과가 필요하면 직접 호출이 더 단순합니다.
+알림, 로그, 분석처럼 후속 책임이 늘어날 때는 주문 흐름이 각 구현을 직접 알지 않도록 생성 사실을 event로 전달할 수 있습니다.
 
-예를 들어 주문 서비스가 알림 전송, 로그 저장, 분석 적재를 모두 직접 호출하면 주문 생성 코드가 후속 작업의 세부 구현에 묶입니다.
-후속 작업 하나가 바뀔 때마다 주문 생성 흐름까지 함께 확인해야 합니다.
+현재 구현은 `OrderCreatedEvent`를 RabbitMQ로 보내고 알림 consumer가 별도 책임에서 처리합니다.
 
-이번 시퀀스는 이 문제를 이벤트로 분리하는 방법을 다룹니다.
-이벤트는 "주문이 생성되었다"는 사실을 후속 작업 쪽에 전달하는 선택지입니다.
-
-## 2. 이벤트는 모든 상황의 정답일까?
-
-이벤트 기반 구조가 항상 좋은 선택은 아닙니다.
-흐름이 단순한 기능에서는 직접 호출이 더 읽기 쉽고, 실패 지점도 찾기 쉽습니다.
-
-이벤트를 쓰면 발행자와 소비자를 분리할 수 있지만, 메시지 브로커 운영, 재시도, 중복 처리, 순서 보장 같은 문제가 함께 생깁니다.
-따라서 이번 실습의 목표는 이벤트를 정답처럼 외우는 것이 아니라, 후속 작업을 분리해야 할 때 어떤 선택지가 있는지 이해하는 것입니다.
-
-## 3. 이번 코드의 흐름
-
-이번 실습은 아래 흐름을 확인합니다.
-
-```text
-POST /event-orders
--> OrderService
--> OrderCreatedEvent
--> EventPublisherService
--> RabbitMQ
--> NotificationConsumer
--> NotificationService
--> GET /event-orders/notifications
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant O as OrderService
+    participant P as EventPublisherService
+    participant T as RabbitTemplate
+    participant R as RabbitMQ
+    participant N as NotificationConsumer
+    participant S as NotificationService
+    participant M as ConcurrentHashMap
+    C->>O: POST /event-orders
+    O->>P: publishOrderCreated(event)
+    P->>T: convertAndSend(exchange, routingKey, event)
+    T->>R: AMQP publish 시도
+    par producer 정상 반환 경로
+        T-->>P: 정상 반환 · acceptance/route 미확정
+        P-->>O: publishOrderCreated 반환
+        O-->>C: 201 + OrderResponse
+    and accepted·routed된 broker 경로
+        R->>N: OrderCreatedEvent 전달
+        N->>S: record(event) → M
+    end
+    Note over C,N: HTTP 응답 완료와 consumer 완료의 상대 순서는 미보장
 ```
 
-주문 생성 요청은 `POST /event-orders`로 들어옵니다.
-`OrderService`는 주문 번호를 만들고 `OrderCreatedEvent`를 생성합니다.
-`EventPublisherService`는 이벤트를 RabbitMQ로 보내고, `NotificationConsumer`는 이벤트를 받아 알림 기록을 남깁니다. `NotificationService`는 같은 `orderId`를 key로 사용해 프로세스가 살아 있는 동안 중복 알림을 만들지 않습니다.
-알림 결과는 `GET /event-orders/notifications`로 확인합니다.
+| 단계 | 들어온 것 | 한 일 | 나간 것 또는 상태 |
+|---|---|---|---|
+| 공통 | 주문 요청 | `AtomicLong`으로 id를 만들고 값을 정리 | `OrderCreatedEvent` 준비 |
+| 공통 | exchange, routing key, event | `convertAndSend` 호출과 AMQP publish 시도 | producer continuation과 broker 경로가 독립적으로 진행 |
+| Producer | `convertAndSend` 정상 반환 | `OrderResponse` 생성 후 Controller가 응답 | `201 + OrderResponse` · acceptance는 미확정 |
+| Broker | accepted·routed된 queue event | consumer가 event를 받아 `record(event)` 호출 | 현재 process의 `ConcurrentHashMap`에 알림 한 건 |
 
-## 4. 핵심 코드로 연결하기
+HTTP 응답은 publisher 호출의 정상 반환까지 기다리지만 broker 이후 consumer 완료까지 기다리지는 않습니다. 정상 반환도 publisher confirm이 없는 현재 설정에서는 broker acceptance, queue route, consumer 완료를 확정하지 않습니다. 응답 반환과 consumer 완료 중 어느 쪽이 먼저 관찰될지도 보장하지 않습니다.
 
-실제 파일 경로는 아래와 같습니다.
+## 2. 발행 경계와 소비 경계는 따로 실패합니다
 
-- `src/main/kotlin/com/andi/rest_crud/controller/OrderEventController.kt`: `POST /event-orders`, `GET /event-orders/notifications` API 입구입니다.
-- `src/main/kotlin/com/andi/rest_crud/event/OrderCreatedEvent.kt`: 주문 생성 사실을 담는 이벤트 DTO입니다.
-- `src/main/kotlin/com/andi/rest_crud/service/OrderService.kt`: 주문 생성 뒤 이벤트를 만듭니다.
-- `src/main/kotlin/com/andi/rest_crud/service/EventPublisherService.kt`: 이벤트를 RabbitMQ로 발행합니다.
-- `src/main/kotlin/com/andi/rest_crud/service/NotificationConsumer.kt`: queue에서 이벤트를 소비합니다.
-- `src/main/kotlin/com/andi/rest_crud/service/NotificationService.kt`: 소비된 이벤트를 `orderId`별 알림으로 기록하고 인메모리 중복을 막습니다.
-- `src/main/kotlin/com/andi/rest_crud/config/EventConfig.kt`: exchange, queue, binding을 설정합니다.
-
-왜 이 코드를 보는지 먼저 정리합니다.
-주문 생성 코드가 알림 저장 방식을 직접 알지 않게 하려면 발행자와 소비자를 분리해야 합니다.
+Publisher의 책임은 exchange와 routing key로 event를 보내는 데서 끝납니다.
 
 ```kotlin
 fun publishOrderCreated(event: OrderCreatedEvent) {
@@ -60,62 +53,39 @@ fun publishOrderCreated(event: OrderCreatedEvent) {
 }
 ```
 
-이 코드는 주문 생성 결과를 후속 작업으로 전달하는 문제를 해결합니다.
-발행자는 이벤트를 보내고, 알림 기록은 소비자가 맡습니다.
+호출 전에는 event가 producer 메모리에 있고, 정상 반환 뒤에는 client-side 전송 호출이 예외 없이 끝난 상태입니다. 이것만으로 broker acceptance나 queue 저장을 증명하지 않습니다.
+`convertAndSend`가 예외를 던지면 `OrderService`는 응답 반환까지 도달하지 않습니다. 다만 generic 예외는 실패 시점이 명확하지 않아 broker·queue 미도달을 확정할 수 없습니다. message conversion처럼 send 이전 실패임을 별도로 확인한 경우에만 미전송으로 좁힐 수 있습니다. 현재 예제는 publisher confirm, 영속 주문, outbox, retry, 보상을 제공하지 않습니다.
 
-## 5. 핵심 개념
-
-### 동기 호출
-
-동기 호출은 한 코드가 다른 코드를 직접 호출하고 결과를 기다리는 방식입니다.
-흐름이 짧고 명확하지만, 후속 작업이 늘어나면 호출 관계가 촘촘해집니다.
-
-### 이벤트
-
-이벤트는 이미 일어난 사실을 담은 메시지입니다.
-이번 코드에서는 `OrderCreatedEvent`가 주문 생성 사실을 담습니다.
+Consumer는 event를 자기 상태로 기록합니다.
 
 ```kotlin
-data class OrderCreatedEvent(
-    val orderId: Long,
-    val userId: String,
-    val productName: String
+notifications.putIfAbsent(
+    event.orderId,
+    NotificationMessageResponse(
+        orderId = event.orderId,
+        userId = event.userId,
+        message = "주문 ${event.orderId}번(${event.productName})이 생성되었습니다."
+    )
 )
 ```
 
-이 이벤트는 후속 작업이 필요한 최소 정보만 담습니다.
-알림 소비자는 이 메시지를 보고 알림 기록을 만들 수 있습니다.
+첫 전달 전에는 해당 `orderId`가 없고, 기록 뒤에는 현재 `ConcurrentHashMap`에 알림 한 건이 남습니다.
+같은 event를 다시 받아도 같은 process에서는 한 건을 유지하지만 재시작하거나 instance가 나뉘면 이 map은 공유되지 않습니다.
 
-### 발행자와 소비자
+Consumer의 `record(event)`가 실패해도 HTTP 요청 흐름과 같은 call stack에서 처리되는 것이 아닙니다. 당시 HTTP 응답이 이미 반환됐는지와 consumer 실패가 먼저 관찰됐는지는 실행 timing에 따라 달라질 수 있습니다. 현재 설정과 테스트만으로 retry, DLQ, 재전달 여부를 단정하지 않습니다.
 
-발행자는 이벤트를 보냅니다.
-소비자는 이벤트를 받아 자기 책임을 처리합니다.
+## 3. 증거 범위를 나눠 읽습니다
 
-이번 코드에서는 `EventPublisherService`가 발행자 역할을 하고, `NotificationConsumer`가 소비자 역할을 합니다.
-주문 생성 코드는 알림 저장 방식까지 직접 알지 않아도 됩니다.
+```bash
+docker compose up -d
+./gradlew test
+./gradlew bootRun
+```
 
-소비자는 같은 메시지를 다시 받을 수 있습니다. 현재 `NotificationService`는 `ConcurrentHashMap.putIfAbsent(...)`로 같은 `orderId`의 알림을 한 번만 기록하지만, 이 상태는 애플리케이션 재시작 후 사라지므로 운영 멱등성을 완성한 것은 아닙니다.
+Publisher 단위 테스트는 `RabbitTemplate.convertAndSend` 호출만 확인합니다. Consumer 단위 테스트는 HTTP를 거치지 않고 `consumeOrderCreated(event)`를 직접 호출한 뒤 `NotificationService.getAll()`을 읽습니다.
+실제 broker route와 queue 전달은 live RabbitMQ·애플리케이션 왕복으로, POST 응답 뒤 GET 알림 조회는 그 결과를 보는 수동 간접 증거로 별도 확인해야 합니다.
 
-### 메시지 큐
+직접 호출과 event 전달 중 어느 쪽도 항상 정답은 아닙니다.
+응답이 즉시 후속 결과를 필요로 하는지, 실패를 어디서 관찰하고 복구할지, 중복 상태를 얼마나 오래 유지할지로 선택합니다.
 
-메시지 큐는 발행자와 소비자 사이에서 이벤트를 전달합니다.
-이번 실습에서는 RabbitMQ 설정을 사용하지만, 목표는 운영 심화가 아니라 발행과 소비 흐름을 읽는 것입니다.
-
-## 6. 실행/테스트 결과로 확인할 것
-
-`docker compose up -d`로 RabbitMQ를 실행하고 `./gradlew test`로 발행/소비와 같은 `orderId` 중복 방지 테스트를 확인합니다.
-서버 실행 후 `POST /event-orders`를 호출하고 `GET /event-orders/notifications`로 소비 결과를 확인합니다.
-
-## 7. 한계와 다음 개선 방향
-
-이번 구조는 후속 작업 분리와 인메모리 `orderId` 중복 방지를 보여주는 최소 예시입니다.
-운영 환경에서는 재시작 후에도 유지되는 멱등성, 재시도, 순서, 실패 보상, 모니터링 기준을 추가로 설계해야 합니다.
-
-## 8. 확인 질문
-
-- 주문 생성 뒤 알림, 로그, 분석이 늘어나면 주문 서비스가 어떤 일을 너무 많이 알게 되나요?
-- `OrderCreatedEvent`에는 왜 주문 생성 사실과 후속 처리에 필요한 값만 담나요?
-- `EventPublisherService`와 `NotificationConsumer`를 나누면 어떤 의존이 줄어드나요?
-- 이벤트 기반 구조를 쓰면 어떤 운영 복잡도가 추가되나요?
-- 현재 중복 방지가 재시작 후 유지되지 않는 이유는 무엇인가요?
-- 이번 상황에서 직접 호출과 이벤트 전달 중 어떤 방식이 더 적절한지 설명할 수 있나요?
+[Visual Lab에서 입력 조건을 보고 경로 예측하기](./visual-lab/sequences/12/)
