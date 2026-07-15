@@ -5,6 +5,128 @@ window.visualLabData = {
   "subtitle": "Message queue and event-driven thinking",
   "goal": "동기 직접 호출과 이벤트 전달을 비교하고, 이벤트 발행자와 소비자의 책임을 작은 예제로 이해합니다.",
   "problem": "주문 생성 메서드가 알림 처리까지 직접 호출하면 후속 작업이 늘어날수록 주문 흐름이 여러 구현 세부사항을 알게 됩니다.",
+  "workbench": {
+    "kind": "event",
+    "title": "Event Delivery Trace",
+    "instruction": "직접 호출과 broker 전달을 비교하고, 현재 예제가 실제로 확인하는 발행·소비·중복 방지 범위를 구분하세요.",
+    "scenarios": [
+      {
+        "id": "event-direct-call",
+        "label": "직접 호출 비교안",
+        "flowId": "direct-vs-event",
+        "tone": "signal",
+        "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다고 가정해 직접 호출 경로를 비교합니다.",
+        "route": [
+          "OrderService",
+          "Direct call",
+          "NotificationService",
+          "Notification result"
+        ],
+        "snapshot": [
+          {
+            "label": "결합 관계",
+            "value": "주문 흐름이 알림 구현을 직접 앎",
+            "tone": "signal"
+          },
+          {
+            "label": "후속 작업 경로",
+            "value": "NotificationService 직접 호출",
+            "tone": "warning"
+          }
+        ],
+        "evidence": "직접 호출은 흐름이 짧고 실패 지점을 추적하기 쉽지만 OrderService가 후속 작업 구현에 결합됩니다.",
+        "outcome": "단순한 흐름에서는 직접 호출도 유효한 선택이며 이벤트가 항상 정답은 아닙니다."
+      },
+      {
+        "id": "event-broker-delivered",
+        "label": "RabbitMQ 전달 완료",
+        "flowId": "order-event-flow",
+        "tone": "recovered",
+        "prompt": "현재 실습 코드의 주문 요청, 이벤트 발행, 소비, 알림 조회 경로를 끝까지 추적합니다.",
+        "route": [
+          "POST /event-orders",
+          "OrderEventController",
+          "OrderService",
+          "OrderCreatedEvent",
+          "EventPublisherService",
+          "RabbitMQ",
+          "NotificationConsumer",
+          "NotificationService",
+          "GET /event-orders/notifications"
+        ],
+        "snapshot": [
+          {
+            "label": "확인 범위",
+            "value": "발행 호출 · 소비 결과 · 알림 조회",
+            "tone": "recovered"
+          },
+          {
+            "label": "영속 주문",
+            "value": "저장하지 않음",
+            "tone": "warning"
+          }
+        ],
+        "evidence": "테스트와 API는 이벤트 발행 호출, consumer 처리, 인메모리 알림 기록을 확인합니다.",
+        "outcome": "발행자와 소비자 책임은 분리되지만 영속 주문 저장까지 검증한 것은 아닙니다."
+      },
+      {
+        "id": "event-duplicate-delivery",
+        "label": "같은 이벤트 재전달",
+        "flowId": "order-event-flow",
+        "tone": "warning",
+        "prompt": "같은 orderId 이벤트가 두 번 소비될 때 현재 중복 방지의 범위를 확인합니다.",
+        "route": [
+          "RabbitMQ",
+          "NotificationConsumer",
+          "NotificationService.putIfAbsent(orderId)",
+          "GET /event-orders/notifications"
+        ],
+        "snapshot": [
+          {
+            "label": "중복 처리",
+            "value": "현재 프로세스에서 알림 1건",
+            "tone": "warning"
+          },
+          {
+            "label": "재시작 이후",
+            "value": "중복 방지 보장 없음",
+            "tone": "warning"
+          }
+        ],
+        "evidence": "NotificationService는 ConcurrentHashMap의 `putIfAbsent`로 같은 orderId를 현재 프로세스에서 한 번만 기록합니다.",
+        "outcome": "애플리케이션 재시작 뒤에도 유지되는 영속 멱등성을 보장하지 않습니다."
+      },
+      {
+        "id": "event-publish-failed",
+        "label": "발행 실패 경계",
+        "flowId": "order-event-flow",
+        "tone": "blocked",
+        "prompt": "EventPublisherService에서 발행이 실패했을 때 현재 예제가 해결하지 않는 저장·발행 경계를 확인합니다.",
+        "route": [
+          "OrderService",
+          "OrderCreatedEvent",
+          "EventPublisherService",
+          "RabbitMQ",
+          "NotificationConsumer"
+        ],
+        "snapshot": [
+          {
+            "label": "트랜잭션 경계",
+            "value": "발행 실패 · 영속 주문 저장 없음",
+            "tone": "blocked"
+          },
+          {
+            "label": "RabbitMQ 전달",
+            "value": "도달하지 않음",
+            "tone": "blocked"
+          }
+        ],
+        "evidence": "현재 OrderService는 AtomicLong으로 id를 만들고 테스트는 발행 호출과 소비 결과를 확인할 뿐, 영속 주문 저장과 발행의 원자성을 검증하지 않습니다.",
+        "outcome": "저장 성공·발행 실패 문제나 outbox를 해결한 것으로 해석하지 않고 후속 메시징 범위로 남깁니다.",
+        "stopAfter": 2
+      }
+    ]
+  },
   "repo": {
     "name": "spring-boot-event-driven-lab",
     "path": "spring-boot-event-driven-lab"
