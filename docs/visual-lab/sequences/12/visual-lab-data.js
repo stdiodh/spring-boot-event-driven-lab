@@ -9,6 +9,29 @@ window.visualLabData = {
     "kind": "event",
     "title": "Event Delivery Trace",
     "instruction": "직접 호출과 broker 전달을 비교하고, 현재 예제가 실제로 확인하는 발행·소비·중복 방지 범위를 구분하세요.",
+    "visual": {
+      "src": "../../assets/diagrams/12-response-event-fork.svg",
+      "alt": "POST event-orders 요청이 OrderService에 도착한 뒤 publisher 호출이 반환되고 OrderResponse가 만들어지며 consumer 처리는 별도로 이어지는 순서",
+      "caption": "OrderService는 publisher 호출이 반환된 뒤 OrderResponse를 돌려주지만, broker 이후 consumer 완료까지 기다리지는 않습니다."
+    },
+    "terms": [
+      { "term": "event", "meaning": "이미 발생한 사실을 다른 책임에 알리는 메시지" },
+      { "term": "publisher", "meaning": "현재 책임에서 만든 event를 broker에 보내는 주체" },
+      { "term": "broker", "meaning": "publisher와 consumer 사이에서 event를 라우팅하고 전달하는 중간 시스템" },
+      { "term": "consumer", "meaning": "queue에서 event를 받아 후속 작업을 수행하는 주체" },
+      { "term": "멱등성", "meaning": "같은 event를 여러 번 처리해도 결과가 한 번 처리한 것과 같게 만드는 성질" }
+    ],
+    "comparison": {
+      "label": "요청 응답과 후속 이벤트 전달",
+      "left": {
+        "title": "HTTP response",
+        "body": "OrderService는 publisher 호출이 반환된 다음 OrderResponse를 만듭니다. broker 이후 consumer 처리 완료를 기다리지는 않습니다."
+      },
+      "right": {
+        "title": "event delivery",
+        "body": "OrderCreatedEvent가 publisher, broker, queue, consumer로 전달되는 후속 작업 경로입니다. 별도 실패와 중복 경계를 가집니다."
+      }
+    },
     "nodes": {
       "client": {
         "label": "Client",
@@ -110,10 +133,20 @@ window.visualLabData = {
     "scenarios": [
       {
         "id": "event-direct-call",
-        "label": "직접 호출 비교안",
+        "label": "후속 작업 1개·즉시 결과 필요",
         "flowId": "direct-vs-event",
         "tone": "signal",
         "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다고 가정해 직접 호출 경로를 비교합니다.",
+        "prediction": {
+          "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다면 어떤 연결이 먼저 적합할까요?",
+          "options": [
+            { "id": "direct", "label": "짧은 직접 호출부터 비교" },
+            { "id": "event", "label": "항상 broker 이벤트 사용" },
+            { "id": "both", "label": "두 경로를 동시에 실행" }
+          ],
+          "answer": "direct",
+          "explanation": "이벤트는 결합을 줄이지만 운영 복잡도를 더합니다. 단순하고 즉시 결과가 필요한 흐름에서는 직접 호출도 유효합니다."
+        },
         "route": [
           "OrderService",
           "Direct call",
@@ -170,10 +203,20 @@ window.visualLabData = {
       },
       {
         "id": "event-broker-delivered",
-        "label": "RabbitMQ 전달 완료",
+        "label": "RabbitMQ 실행·주문 요청",
         "flowId": "order-event-flow",
         "tone": "recovered",
-        "prompt": "현재 실습 코드의 주문 요청, 이벤트 발행, 소비, 알림 조회 경로를 끝까지 추적합니다.",
+        "prompt": "RabbitMQ를 실행한 상태에서 `POST /event-orders` 요청을 보냈습니다. 응답과 후속 처리의 실제 순서를 예측합니다.",
+        "prediction": {
+          "prompt": "HTTP 주문 응답은 consumer 처리 완료를 기다려야 할까요?",
+          "options": [
+            { "id": "wait", "label": "consumer 완료 뒤 응답" },
+            { "id": "fork", "label": "응답 경로와 이벤트 경로가 분리" },
+            { "id": "persist", "label": "DB 주문 저장 뒤에만 응답" }
+          ],
+          "answer": "fork",
+          "explanation": "OrderService는 publisher 호출이 반환된 뒤 OrderResponse를 만듭니다. broker 이후 consumer 완료는 HTTP 응답 성공의 전제 조건이 아니며 DB 주문 저장도 검증 범위가 아닙니다."
+        },
         "route": [
           "POST /event-orders",
           "OrderEventController",
@@ -186,7 +229,7 @@ window.visualLabData = {
           "GET /event-orders/notifications"
         ],
         "diagram": {
-          "caption": "주문 응답 lane과 비동기 event lane은 OrderService에서 갈라지며, 알림 소비 완료는 POST 응답의 선행 조건이 아닙니다.",
+          "caption": "OrderService의 publisher 호출이 반환된 뒤 OrderResponse가 만들어집니다. broker에서 이어지는 consumer 완료는 POST 응답의 선행 조건이 아닙니다.",
           "lanes": [
             {
               "id": "order-response-lane",
@@ -206,6 +249,23 @@ window.visualLabData = {
                   "verb": "생성 위임",
                   "payload": "createOrder(request)",
                   "kind": "call"
+                },
+                {
+                  "from": "order-service",
+                  "to": "event-publisher",
+                  "verb": "발행 호출",
+                  "payload": "publishOrderCreated(OrderCreatedEvent)",
+                  "kind": "event",
+                  "codePointIds": [
+                    "event-dto"
+                  ]
+                },
+                {
+                  "from": "event-publisher",
+                  "to": "order-service",
+                  "verb": "호출 반환",
+                  "payload": "publisher call returned · consumer completion not included",
+                  "kind": "response"
                 },
                 {
                   "from": "order-service",
@@ -229,16 +289,6 @@ window.visualLabData = {
               "label": "Producer → Broker → Consumer",
               "description": "event payload가 exchange, binding, queue를 거쳐 별도 consumer 책임으로 전달됩니다.",
               "steps": [
-                {
-                  "from": "order-service",
-                  "to": "event-publisher",
-                  "verb": "발행 책임 위임",
-                  "payload": "publishOrderCreated(OrderCreatedEvent { orderId, userId, productName })",
-                  "kind": "event",
-                  "codePointIds": [
-                    "event-dto"
-                  ]
-                },
                 {
                   "from": "event-publisher",
                   "to": "rabbit-exchange",
@@ -349,10 +399,20 @@ window.visualLabData = {
       },
       {
         "id": "event-duplicate-delivery",
-        "label": "같은 이벤트 재전달",
+        "label": "같은 orderId 이벤트 2회",
         "flowId": "order-event-flow",
         "tone": "warning",
         "prompt": "같은 orderId 이벤트가 두 번 소비될 때 현재 중복 방지의 범위를 확인합니다.",
+        "prediction": {
+          "prompt": "putIfAbsent 중복 방지는 어디까지 유지될까요?",
+          "options": [
+            { "id": "process", "label": "현재 애플리케이션 프로세스" },
+            { "id": "restart", "label": "재시작 뒤에도 영구 유지" },
+            { "id": "broker", "label": "broker 전체에서 exactly-once 보장" }
+          ],
+          "answer": "process",
+          "explanation": "ConcurrentHashMap은 현재 프로세스 메모리입니다. 재시작과 다중 instance를 넘는 영속 멱등성을 보장하지 않습니다."
+        },
         "route": [
           "RabbitMQ",
           "NotificationConsumer",
@@ -472,10 +532,20 @@ window.visualLabData = {
       },
       {
         "id": "event-publish-failed",
-        "label": "발행 실패 경계",
+        "label": "convertAndSend 예외",
         "flowId": "order-event-flow",
         "tone": "blocked",
-        "prompt": "EventPublisherService에서 발행이 실패했을 때 현재 예제가 해결하지 않는 저장·발행 경계를 확인합니다.",
+        "prompt": "EventPublisherService의 `convertAndSend` 호출이 예외로 끝났습니다. 도달하지 못한 경계와 남은 문제를 예측합니다.",
+        "prediction": {
+          "prompt": "현재 예제가 발행 실패까지 해결했다고 볼 수 있을까요?",
+          "options": [
+            { "id": "outbox", "label": "outbox와 재시도까지 보장" },
+            { "id": "atomic", "label": "주문 저장과 발행이 원자적" },
+            { "id": "unresolved", "label": "저장·발행 일관성은 후속 범위" }
+          ],
+          "answer": "unresolved",
+          "explanation": "현재 코드는 AtomicLong id와 발행 호출을 보여 줄 뿐 영속 주문 저장, outbox, 재시도, exactly-once를 구현하지 않습니다."
+        },
         "route": [
           "OrderService",
           "OrderCreatedEvent",
@@ -586,8 +656,8 @@ window.visualLabData = {
     {
       "id": "order-event-flow",
       "title": "주문 생성과 이벤트 전달 흐름",
-      "summary": "API 요청은 주문 생성 결과를 만들고, 그 결과가 이벤트로 발행되어 소비자의 후속 작업으로 이어집니다.",
-      "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as OrderEventController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order-->>Controller: order result\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Broker-->>Consumer: deliver event\n  Consumer->>Log: save notification record\n  Controller-->>Client: order response",
+      "summary": "OrderService는 이벤트를 만든 뒤 publisher를 호출하고, 호출이 반환된 다음 OrderResponse를 돌려줍니다. consumer 후속 작업은 응답과 별도로 이어집니다.",
+      "mermaid": "sequenceDiagram\n  actor Client\n  participant Controller as OrderEventController\n  participant Order as OrderService\n  participant Publisher as EventPublisherService\n  participant Broker as Message Broker\n  participant Consumer as NotificationConsumer\n  participant Log as Notification Log\n  Client->>Controller: POST /event-orders\n  Controller->>Order: create order\n  Order->>Publisher: publish OrderCreatedEvent\n  Publisher->>Broker: send event\n  Publisher-->>Order: publish call returns\n  Order-->>Controller: OrderResponse\n  Controller-->>Client: 201 order response\n  Broker-->>Consumer: deliver event, not awaited by response\n  Consumer->>Log: save notification record",
       "steps": [
         {
           "order": 1,
@@ -615,17 +685,17 @@ window.visualLabData = {
           "actor": "OrderEventController",
           "input": "Order request",
           "owner": "OrderService",
-          "action": "주문 id와 주문 생성 결과를 만듭니다.",
-          "output": "Order result",
-          "note": "주문 서비스는 후속 알림 세부 구현을 직접 알 필요를 줄입니다.",
+          "action": "주문 id와 OrderCreatedEvent를 만듭니다.",
+          "output": "OrderCreatedEvent",
+          "note": "현재 예제는 AtomicLong으로 id를 만들며 주문을 영속 저장하지 않습니다.",
           "id": "order-event-flow-step-2",
           "from": "OrderEventController",
           "to": "OrderService",
-          "message": "주문 id와 주문 생성 결과를 만듭니다.",
-          "messageKind": "event",
+          "message": "주문 id와 OrderCreatedEvent를 만듭니다.",
+          "messageKind": "call",
           "problem": "Order request",
           "concept": "OrderService",
-          "check": "Order result",
+          "check": "OrderCreatedEvent",
           "codePointIds": [
             "publish-consume",
             "event-dto"
@@ -634,19 +704,19 @@ window.visualLabData = {
         {
           "order": 3,
           "actor": "OrderService",
-          "input": "Order result",
-          "owner": "OrderCreatedEvent",
-          "action": "후속 작업이 알아야 할 최소 사실을 이벤트로 표현합니다.",
-          "output": "Event DTO",
-          "note": "이벤트 필드가 많아질수록 소비자가 발행자 내부 모델에 의존하기 쉽습니다.",
+          "input": "OrderCreatedEvent",
+          "owner": "EventPublisherService",
+          "action": "publisher에 이벤트 발행을 맡기고 호출 반환을 기다립니다.",
+          "output": "Event sent · publisher call returned",
+          "note": "호출 반환은 consumer 처리 완료를 뜻하지 않습니다.",
           "id": "order-event-flow-step-3",
           "from": "OrderService",
-          "to": "OrderCreatedEvent",
-          "message": "후속 작업이 알아야 할 최소 사실을 이벤트로 표현합니다.",
+          "to": "EventPublisherService",
+          "message": "이벤트 발행을 호출하고 반환을 기다립니다.",
           "messageKind": "event",
-          "problem": "Order result",
-          "concept": "OrderCreatedEvent",
-          "check": "Event DTO",
+          "problem": "OrderCreatedEvent",
+          "concept": "EventPublisherService",
+          "check": "Publisher call returned",
           "codePointIds": [
             "event-dto",
             "publish-consume"
@@ -655,19 +725,19 @@ window.visualLabData = {
         {
           "order": 4,
           "actor": "OrderService",
-          "input": "OrderCreatedEvent",
-          "owner": "EventPublisherService",
-          "action": "이벤트 발행 책임만 맡깁니다.",
-          "output": "Published event",
-          "note": "발행자는 후속 작업의 구현 세부사항을 직접 호출하지 않습니다.",
+          "input": "Publisher call returned",
+          "owner": "OrderEventController",
+          "action": "발행 호출 반환 뒤 OrderResponse를 만들어 Controller로 돌려줍니다.",
+          "output": "OrderResponse",
+          "note": "HTTP 응답은 consumer 완료를 기다리지 않습니다.",
           "id": "order-event-flow-step-4",
           "from": "OrderService",
-          "to": "EventPublisherService",
-          "message": "이벤트 발행 책임만 맡깁니다.",
-          "messageKind": "event",
-          "problem": "OrderCreatedEvent",
-          "concept": "EventPublisherService",
-          "check": "Published event",
+          "to": "OrderEventController",
+          "message": "발행 호출 반환 뒤 OrderResponse를 돌려줍니다.",
+          "messageKind": "response",
+          "problem": "Publisher call returned",
+          "concept": "OrderResponse",
+          "check": "OrderResponse",
           "codePointIds": [
             "publish-consume",
             "event-dto"
@@ -676,7 +746,7 @@ window.visualLabData = {
         {
           "order": 5,
           "actor": "Message Broker",
-          "input": "Published event",
+          "input": "Broker-routed event",
           "owner": "NotificationConsumer",
           "action": "소비자가 이벤트를 받아 알림 기록으로 연결합니다.",
           "output": "Notification log",
@@ -686,7 +756,7 @@ window.visualLabData = {
           "to": "NotificationConsumer",
           "message": "소비자가 이벤트를 받아 알림 기록으로 연결합니다.",
           "messageKind": "event",
-          "problem": "Published event",
+          "problem": "Broker-routed event",
           "concept": "NotificationConsumer",
           "check": "Notification log",
           "codePointIds": [

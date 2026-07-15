@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650" role="img" aria-labelledby="title desc">
+  <title id="title">주문 응답과 이벤트 소비의 실제 실행 순서</title>
+  <desc id="desc">POST event-orders 요청 뒤 OrderService가 publisher를 호출합니다. publisher 호출이 반환된 다음 OrderResponse를 만들며, RabbitMQ queue와 consumer 처리는 별도 경로로 이어져 HTTP 응답이 consumer 완료를 기다리지 않습니다.</desc>
+  <metadata>Source: A&amp;I Sequence 12 theory, implementation, checklist, OrderEventController, OrderService, EventPublisherService. License: repository policy; no standalone license grant.</metadata>
+  <defs>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#2955e4"/>
+    </marker>
+  </defs>
+  <rect width="720" height="650" rx="22" fill="#f1f7ff"/>
+  <text x="24" y="46" fill="#111b3f" font-family="system-ui, sans-serif" font-size="30" font-weight="850">RESPONSE / EVENT ORDER</text>
+  <text x="24" y="82" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="800">REQUEST → PRODUCER</text>
+
+  <rect x="20" y="104" width="200" height="104" rx="14" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
+  <text x="120" y="143" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">1 · CONTROLLER</text>
+  <text x="120" y="181" text-anchor="middle" fill="#111b3f" font-family="ui-monospace, monospace" font-size="24">/event-orders</text>
+  <path d="M220 156H255" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="260" y="104" width="180" height="104" rx="14" fill="#ffffff" stroke="#0c2691" stroke-width="3"/>
+  <text x="350" y="143" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">2 · SERVICE</text>
+  <text x="350" y="181" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24">event 생성</text>
+  <path d="M440 156H475" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="480" y="104" width="220" height="104" rx="14" fill="#ecfbfa" stroke="#0c2691" stroke-width="3"/>
+  <text x="590" y="143" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">3 · PUBLISHER</text>
+  <text x="590" y="181" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24">발행 호출</text>
+
+  <path d="M590 208V220H460V278H445" fill="none" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="260" y="230" width="180" height="96" rx="14" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
+  <text x="350" y="268" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">4 · RETURN</text>
+  <text x="350" y="302" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24">호출 반환</text>
+  <path d="M260 278H225" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+
+  <rect x="20" y="230" width="200" height="96" rx="14" fill="#ffffff" stroke="#0c2691" stroke-width="3"/>
+  <text x="120" y="268" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">5 · RESPONSE</text>
+  <text x="120" y="302" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24">201 + JSON</text>
+
+  <rect x="20" y="366" width="410" height="172" rx="14" fill="#0c2691"/>
+  <text x="44" y="407" fill="#ffffff" font-family="system-ui, sans-serif" font-size="26" font-weight="900">HTTP가 기다리는 경계</text>
+  <text x="44" y="449" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24">publisher 호출 반환까지</text>
+  <text x="44" y="491" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24">consumer 완료는 기다리지 않음</text>
+
+  <text x="460" y="356" text-anchor="end" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="800">EVENT DELIVERY</text>
+  <path d="M590 208V375" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="480" y="382" width="220" height="68" rx="13" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
+  <text x="590" y="425" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">RabbitMQ</text>
+  <path d="M590 450V472" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="480" y="479" width="220" height="68" rx="13" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
+  <text x="590" y="522" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">QUEUE</text>
+  <path d="M590 547V569" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="480" y="576" width="220" height="58" rx="13" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
+  <text x="590" y="614" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">CONSUMER</text>
+</svg>
