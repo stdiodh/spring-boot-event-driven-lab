@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 680" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 52 720 550" role="img" aria-labelledby="title desc">
   <title id="title">Publish 시도 뒤 갈라지는 producer와 broker 경로</title>
   <desc id="desc">입구·출구 Controller와 서비스·정책 Service를 지난 요청이 연동·메시징 RabbitTemplate publish 시도 뒤, producer 정상 반환에 따른 HTTP 응답 경로와 accepted·routed된 broker delivery 경로로 갈라지며 두 완료 순서는 보장되지 않는 흐름</desc>
   <metadata>Source: A&amp;I Sequence 12 theory, implementation, checklist, OrderEventController, OrderService, EventPublisherService. License: repository policy; no standalone license grant.</metadata>
@@ -20,26 +20,22 @@
       .state{fill:#F6F7FA;stroke:#64748B;stroke-width:2}
       .flow{fill:none;stroke:#2955E4;stroke-width:4;marker-end:url(#arrow)}
       .async{fill:none;stroke:#52627A;stroke-width:4;stroke-dasharray:9 7;marker-end:url(#async-arrow)}
-      .title{font-size:29px;font-weight:850}
-      .layer{font-size:24px;font-weight:850;fill:#4B587C;text-anchor:middle}
-      .name{font-size:24px;font-weight:850;text-anchor:middle}
-      .body{font-size:24px;font-weight:650;fill:#4B587C;text-anchor:middle}
-      .lane-name{font-size:24px;font-weight:900;fill:#0C2691;text-anchor:middle}
-      .lane-desc{font-size:24px;font-weight:700;fill:#4B587C;text-anchor:middle}
-      .state-name{font-size:24px;font-weight:850;text-anchor:middle}
-      .complete{font-size:24px;font-weight:850;fill:#FFFFFF;text-anchor:middle}
+      .layer{font-size:25px;font-weight:850;fill:#4B587C;text-anchor:middle}
+      .name{font-size:25px;font-weight:850;text-anchor:middle}
+      .body{font-size:25px;font-weight:650;fill:#4B587C;text-anchor:middle}
+      .lane-name{font-size:27px;font-weight:900;fill:#0C2691;text-anchor:middle}
+      .lane-desc{font-size:25px;font-weight:700;fill:#4B587C;text-anchor:middle}
+      .state-name{font-size:25px;font-weight:850;text-anchor:middle}
     </style>
   </defs>
   <rect width="720" height="680" rx="22" fill="#F8F9FB"/>
-  <text x="22" y="43" class="title">발행 시도 뒤 갈라지는 두 경로</text>
-
   <g data-layer="interface">
-    <rect x="18" y="72" width="202" height="112" rx="14" class="node layer-interface"/>
-    <text x="119" y="98" class="layer">입구·출구</text>
-    <text x="119" y="130" class="name">CONTROLLER</text>
-    <text x="119" y="163" class="body">/event-orders</text>
+    <rect x="19" y="72" width="202" height="112" rx="14" class="node layer-interface"/>
+    <text x="120" y="98" class="layer">입구·출구</text>
+    <text x="120" y="130" class="name">Controller</text>
+    <text x="120" y="163" class="body">/event-orders</text>
   </g>
-  <path d="M220 128h31" class="flow"/>
+  <path d="M221 128h30" class="flow"/>
   <g data-layer="application">
     <rect x="258" y="72" width="184" height="112" rx="14" class="node layer-application"/>
     <text x="350" y="98" class="layer">서비스·정책</text>
@@ -58,7 +54,7 @@
   <path d="M591 184v64" class="async"/>
 
   <g data-semantic="lane">
-    <rect x="18" y="256" width="333" height="326" rx="16" class="lane"/>
+    <rect x="19" y="256" width="332" height="326" rx="16" class="lane"/>
     <text x="184.5" y="289" class="lane-name">생산자 응답</text>
     <text x="184.5" y="316" class="lane-desc">호출 정상 반환 조건</text>
   </g>
@@ -80,30 +76,22 @@
   </g>
 
   <g data-semantic="lane">
-    <rect x="369" y="256" width="333" height="326" rx="16" class="lane"/>
+    <rect x="369" y="256" width="332" height="326" rx="16" class="lane"/>
     <text x="535.5" y="289" class="lane-name">브로커 전달</text>
-    <text x="535.5" y="316" class="lane-desc">accepted·routed 조건</text>
+    <text x="535.5" y="316" class="lane-desc">메시징 · accepted·routed</text>
   </g>
   <g data-layer="integration">
     <rect x="391" y="335" width="289" height="68" rx="10" class="node layer-integration"/>
-    <text x="535.5" y="359" class="layer">연동·메시징</text>
-    <text x="535.5" y="389" class="name">RabbitMQ exchange</text>
+    <text x="535.5" y="378" class="name">RabbitMQ exchange</text>
   </g>
   <path d="M535.5 403v16" class="async"/>
   <g data-layer="integration">
     <rect x="391" y="426" width="289" height="62" rx="10" class="node layer-integration"/>
-    <text x="535.5" y="449" class="layer">연동·메시징</text>
-    <text x="535.5" y="477" class="name">Order event queue</text>
+    <text x="535.5" y="465" class="name">Order event queue</text>
   </g>
   <path d="M535.5 488v16" class="async"/>
   <g data-layer="integration">
     <rect x="391" y="504" width="289" height="64" rx="10" class="node layer-integration"/>
-    <text x="535.5" y="529" class="layer">연동·메시징</text>
-    <text x="535.5" y="558" class="name">Consumer adapter</text>
-  </g>
-
-  <g data-semantic="evidence">
-    <rect x="18" y="610" width="684" height="48" rx="13" fill="#111B3F"/>
-    <text x="360" y="641" class="complete">정상 반환 ≠ broker acceptance · 완료 순서 미보장</text>
+    <text x="535.5" y="546" class="name">Consumer adapter</text>
   </g>
 </svg>

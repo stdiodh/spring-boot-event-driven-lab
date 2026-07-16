@@ -12,7 +12,7 @@ window.visualLabData = {
     "visual": {
       "src": "../../assets/diagrams/12-response-event-fork.svg",
       "alt": "POST event-orders 요청의 publish 시도 뒤 producer 정상 반환과 accepted·routed된 broker 전달이 두 경로로 갈라지며 두 완료 시점의 상대 순서는 정해지지 않은 흐름",
-      "caption": "publish 시도 뒤 producer는 정상 반환 시 OrderResponse를 만들고, accepted·routed된 event는 broker 경로로 전달됩니다. HTTP 응답과 consumer 완료의 상대 순서는 보장되지 않습니다."
+      "caption": "OrderService의 응답 경로와 RabbitMQ를 거치는 consumer 경로가 publisher 호출 뒤 서로 다른 시간선으로 갈라집니다."
     },
     "terms": [
       { "term": "event", "meaning": "이미 발생한 사실을 다른 책임에 알리는 메시지" },
@@ -177,25 +177,25 @@ window.visualLabData = {
         "visual": {
           "src": "../../assets/diagrams/12-direct-call.svg",
           "alt": "OrderService가 NotificationService를 직접 호출하고 즉시 결과를 받는 동기 경로",
-          "caption": "후속 작업이 하나이고 즉시 결과가 필요할 때 직접 호출이 만드는 짧은 결합 경로입니다."
+          "caption": "OrderService와 후속 작업이 하나의 call stack에서 직접 이어지는 비교 경로입니다."
         },
         "tone": "signal",
-        "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다고 가정해 직접 호출 경로를 비교합니다.",
-        "observationTitle": "호출자가 후속 작업의 즉시 결과를 기다리는 동기 경로",
+        "prompt": "후속 작업은 하나이고 호출자가 즉시 결과를 필요로 합니다.",
+        "observationTitle": "즉시 결과를 기다리는 동기 호출",
         "theoryRef": "../../../theory.md#seq-12",
         "reflection": {
-          "prompt": "직접 호출이 더 단순한 선택이 되는 조건을 적어보세요.",
-          "hint": "후속 작업이 하나이고 즉시 결과가 필요한지 먼저 보세요."
+          "prompt": "후속 작업이 둘로 늘고 즉시 결과가 필요 없다면 직접 호출의 결합이 어떻게 달라지는지 적어보세요.",
+          "hint": "OrderService가 알아야 할 후속 구현 수와 실패 경계를 함께 보세요."
         },
         "prediction": {
-          "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다면 어떤 연결이 먼저 적합할까요?",
+          "prompt": "이 조건에서 직접 호출과 event 중 어느 연결이 단순할까요?",
           "options": [
             { "id": "direct", "label": "짧은 직접 호출부터 비교" },
             { "id": "event", "label": "항상 broker 이벤트 사용" },
             { "id": "both", "label": "두 경로를 동시에 실행" }
           ],
           "answer": "direct",
-          "explanation": "이벤트는 결합을 줄이지만 운영 복잡도를 더합니다. 단순하고 즉시 결과가 필요한 흐름에서는 직접 호출도 유효합니다."
+          "explanation": "후속 책임이 늘어날 조건과 달리, 지금은 운영 요소가 적은 직접 호출을 먼저 비교할 수 있습니다."
         },
         "route": [
           "OrderService",
@@ -204,12 +204,12 @@ window.visualLabData = {
           "Notification result"
         ],
         "diagram": {
-          "caption": "이 lane은 현재 RabbitMQ 구현 경로가 아니라, 즉시 결과가 필요한 단순한 후속 작업을 직접 호출할 때의 결합 관계를 비교합니다.",
+          "caption": "OrderService가 후속 작업을 직접 호출하고 같은 call stack에서 결과나 실패를 받습니다.",
           "lanes": [
             {
               "id": "direct-call-comparison",
               "label": "비교안 · 동기 직접 호출",
-              "description": "OrderService가 알림 구현을 직접 알고 같은 호출 흐름에서 결과를 받습니다.",
+              "description": "같은 호출 흐름에서 후속 결과나 실패를 돌려받습니다.",
               "steps": [
                 {
                   "from": "order-service",
@@ -262,8 +262,8 @@ window.visualLabData = {
             "tone": "warning"
           }
         ],
-        "evidence": "직접 호출은 흐름이 짧고 실패 지점을 추적하기 쉽지만 OrderService가 후속 작업 구현에 결합됩니다.",
-        "outcome": "단순한 흐름에서는 직접 호출도 유효한 선택이며 이벤트가 항상 정답은 아닙니다."
+        "evidence": "직접 호출은 별도 broker 없이 흐름을 추적할 수 있지만 OrderService가 후속 구현을 알아야 합니다.",
+        "outcome": "즉시 결과가 필요한 단일 후속 작업에는 직접 호출이 유효합니다."
       },
       {
         "id": "event-broker-delivered",
@@ -272,25 +272,25 @@ window.visualLabData = {
         "visual": {
           "src": "../../assets/diagrams/12-response-event-fork.svg",
           "alt": "주문 HTTP 응답 경로와 RabbitMQ 이벤트 소비 경로가 분기되는 비동기 흐름",
-          "caption": "publisher 호출 이후 HTTP 응답과 broker·consumer 처리가 서로 다른 시간선으로 갈라집니다."
+          "caption": "publisher 호출 뒤 HTTP 응답 lane과 broker·consumer delivery lane이 분리됩니다."
         },
         "tone": "recovered",
-        "prompt": "RabbitMQ를 실행한 상태에서 `POST /event-orders` 요청을 보냈습니다. publish 시도 뒤 두 경로가 어떻게 갈라질지 예측합니다.",
-        "observationTitle": "producer continuation과 broker delivery의 상대 순서를 고정하지 않는 경로",
+        "prompt": "RabbitMQ를 실행한 뒤 `POST /event-orders`를 보냈습니다.",
+        "observationTitle": "HTTP 응답과 consumer 완료 순서",
         "theoryRef": "../../../theory.md#seq-12",
         "reflection": {
           "prompt": "주문 응답이 기다리는 경계와 기다리지 않는 경계를 적어보세요.",
           "hint": "publisher 호출 반환은 consumer 완료를 뜻하지 않습니다."
         },
         "prediction": {
-          "prompt": "HTTP 주문 응답은 consumer 처리 완료를 기다려야 할까요?",
+          "prompt": "OrderService는 consumer 처리가 끝날 때까지 기다릴까요?",
           "options": [
             { "id": "wait", "label": "consumer 완료 뒤 응답" },
             { "id": "fork", "label": "응답 경로와 이벤트 경로가 분리" },
             { "id": "persist", "label": "DB 주문 저장 뒤에만 응답" }
           ],
           "answer": "fork",
-          "explanation": "OrderService는 publisher 호출 정상 반환 뒤 OrderResponse를 만듭니다. 정상 반환은 broker acceptance를 확정하지 않고 HTTP 응답과 consumer 완료의 상대 순서도 보장하지 않습니다."
+          "explanation": "OrderService는 publisher 호출 반환 뒤 응답을 만듭니다. 이 반환은 broker acceptance나 consumer 완료를 보장하지 않습니다."
         },
         "route": [
           "POST /event-orders",
@@ -303,12 +303,12 @@ window.visualLabData = {
           "Broker: accepted·routed → consumer"
         ],
         "diagram": {
-          "caption": "publish 시도 뒤 producer 정상 반환 경로와 accepted·routed된 broker 경로를 나눠 읽습니다. 두 경로는 공통 순번이 없으며 HTTP 응답과 consumer 완료의 상대 순서는 보장되지 않습니다.",
+          "caption": "publish 시도 뒤 producer 응답 경로와 accepted·routed된 broker delivery가 독립적으로 진행됩니다.",
           "lanes": [
             {
               "id": "order-response-lane",
               "label": "Producer continuation · 정상 반환 시",
-              "description": "RabbitTemplate 호출이 정상 반환하면 OrderResponse를 만들어 HTTP 201로 이어지는 producer 흐름입니다.",
+              "description": "publisher 정상 반환 뒤 HTTP 201을 만듭니다.",
               "steps": [
                 {
                   "from": "client",
@@ -403,7 +403,7 @@ window.visualLabData = {
             {
               "id": "event-delivery-lane",
               "label": "Broker delivery · accepted·routed된 경우",
-              "description": "live runtime에서 accepted·routed된 event가 exchange, queue, consumer로 전달되는 별도 흐름입니다.",
+              "description": "accepted·routed된 event가 queue와 consumer로 이동합니다.",
               "steps": [
                 {
                   "from": "event-publisher",
@@ -488,7 +488,7 @@ window.visualLabData = {
             {
               "id": "notification-observation-lane",
               "label": "소비자 상태 → 조회 결과",
-              "description": "현재 process의 map에 기록된 결과를 별도 GET 요청으로 확인합니다.",
+              "description": "process-local map 결과를 별도 GET으로 읽습니다.",
               "steps": [
                 {
                   "from": "notification-service",
@@ -613,8 +613,8 @@ window.visualLabData = {
             "tone": "warning"
           }
         ],
-        "evidence": "Publisher 단위 테스트는 RabbitTemplate mock의 `convertAndSend` 호출만, consumer 단위 테스트는 listener 메서드 직접 호출과 `getAll()`만 확인합니다. live POST 뒤 GET 알림 결과는 broker·consumer 동작의 수동 간접 증거입니다.",
-        "outcome": "발행자와 소비자 책임은 분리되지만 broker acceptance, 완료 순서, 영속 주문 저장까지 단위 테스트로 검증한 것은 아닙니다."
+        "evidence": "Publisher 단위 테스트는 mock 호출만, consumer 단위 테스트는 listener 직접 호출과 map 결과만 확인합니다. live broker route는 POST·GET 왕복의 수동 간접 증거입니다.",
+        "outcome": "HTTP 응답과 consumer 완료의 상대 순서, broker acceptance, 주문 영속성은 현재 근거로 확정할 수 없습니다."
       },
       {
         "id": "event-duplicate-delivery",
@@ -623,15 +623,15 @@ window.visualLabData = {
         "visual": {
           "src": "../../assets/diagrams/12-duplicate-idempotency.svg",
           "alt": "같은 orderId 이벤트 두 건이 process-local map에서 한 건으로 합쳐지는 중복 처리 흐름",
-          "caption": "putIfAbsent는 현재 프로세스 안에서만 같은 orderId의 중복 알림을 막습니다."
+          "caption": "같은 orderId의 두 전달이 process-local map의 한 key로 모입니다."
         },
         "tone": "warning",
-        "prompt": "같은 orderId 이벤트가 두 번 소비될 때 현재 중복 방지의 범위를 확인합니다.",
-        "observationTitle": "같은 orderId를 process-local map에서 한 건으로 유지하는 경로",
+        "prompt": "같은 orderId event를 consumer에 두 번 전달합니다.",
+        "observationTitle": "process-local 중복 기록 수",
         "theoryRef": "../../../theory.md#seq-12",
         "reflection": {
-          "prompt": "현재 중복 방지가 유지되는 수명과 범위를 적어보세요.",
-          "hint": "재시작과 다중 instance 뒤에는 같은 ConcurrentHashMap이 유지되지 않습니다."
+          "prompt": "애플리케이션 재시작 뒤 같은 event가 오면 왜 다시 기록될 수 있는지 적어보세요.",
+          "hint": "재시작 전 ConcurrentHashMap과 재시작 뒤 map은 같은 상태가 아닙니다."
         },
         "prediction": {
           "prompt": "putIfAbsent 중복 방지는 어디까지 유지될까요?",
@@ -641,7 +641,7 @@ window.visualLabData = {
             { "id": "broker", "label": "broker 전체에서 exactly-once 보장" }
           ],
           "answer": "process",
-          "explanation": "ConcurrentHashMap은 현재 프로세스 메모리입니다. 재시작과 다중 instance를 넘는 영속 멱등성을 보장하지 않습니다."
+          "explanation": "영속 저장소를 쓰는 선택과 달리 이 map은 현재 process가 종료되면 함께 사라집니다."
         },
         "route": [
           "NotificationConsumerTest",
@@ -650,12 +650,12 @@ window.visualLabData = {
           "NotificationService.getAll() · size 1"
         ],
         "diagram": {
-          "caption": "중복 방지 목표 단위 테스트는 broker와 HTTP를 거치지 않고 consumer를 같은 event로 두 번 직접 호출한 뒤 NotificationService.getAll()의 size 1을 확인합니다.",
+          "caption": "consumer가 두 event를 처리하지만 orderId key 하나만 process-local map에 남깁니다.",
           "lanes": [
             {
               "id": "duplicate-consumption-lane",
               "label": "중복 전달 → process-local 방어",
-              "description": "consumer가 같은 event를 다시 받아도 map key를 기준으로 현재 process 안에서만 중복을 막습니다.",
+              "description": "같은 key의 두 번째 기록을 현재 map에서 거절합니다.",
               "steps": [
                 {
                   "from": "consumer-unit-test",
@@ -742,8 +742,8 @@ window.visualLabData = {
             "tone": "warning"
           }
         ],
-        "evidence": "중복 목표 단위 테스트는 consumer를 같은 event로 두 번 직접 호출한 뒤 `NotificationService.getAll().size == 1`을 확인합니다. HTTP와 live broker 증거는 포함하지 않습니다.",
-        "outcome": "애플리케이션 재시작 뒤에도 유지되는 영속 멱등성을 보장하지 않습니다."
+        "evidence": "단위 테스트는 consumer를 두 번 직접 호출한 뒤 size 1만 확인하며 HTTP, live broker, 재시작, 다중 instance는 포함하지 않습니다.",
+        "outcome": "현재 중복 방지는 한 process의 map 수명 안에서만 유효합니다."
       },
       {
         "id": "event-publish-failed",
@@ -752,11 +752,11 @@ window.visualLabData = {
         "visual": {
           "src": "../../assets/diagrams/12-failure-boundaries.svg",
           "alt": "publisher 예외와 consumer 기록 예외가 서로 다른 실행 경계에서 발생하는 흐름",
-          "caption": "발행 실패의 전달 상태 unknown과 소비 실패의 독립 경계를 나누어 확인합니다."
+          "caption": "publisher 예외와 별도 실행의 consumer 기록 예외를 서로 다른 실패 lane으로 비교합니다."
         },
         "tone": "blocked",
-        "prompt": "`convertAndSend` generic 예외와 별도의 consumer `record(event)` 예외를 비교합니다. 각 실패에서 확정할 수 있는 상태를 예측합니다.",
-        "observationTitle": "publisher 예외의 전달 unknown과 consumer 예외의 독립 실패 경계를 비교하는 경로",
+        "prompt": "실행 A에서는 `convertAndSend`가 generic 예외를 던지고, 별도 실행 B에서는 consumer의 `record(event)`가 실패합니다.",
+        "observationTitle": "publisher와 consumer 실패 경계",
         "theoryRef": "../../../theory.md#seq-12",
         "reflection": {
           "prompt": "publisher와 consumer 실패에서 각각 확정할 수 없는 것을 적어보세요.",
@@ -770,7 +770,7 @@ window.visualLabData = {
             { "id": "unresolved", "label": "OrderResponse 중단 · 전달 상태 unknown" }
           ],
           "answer": "unresolved",
-          "explanation": "발행 예외면 OrderService 응답은 중단되지만 실패 시점이 불명확해 broker·queue 미도달은 확정할 수 없습니다. conversion-before-send가 확인된 경우에만 미전송으로 좁힙니다."
+          "explanation": "OrderService 응답은 중단되지만 delivery는 unknown입니다. send 전 conversion 실패가 확인된 경우에만 미전송으로 좁힐 수 있습니다."
         },
         "route": [
           "실행 A · publisher 예외",
@@ -779,12 +779,12 @@ window.visualLabData = {
           "알림 기록 실패 · 복구 정책 미확정"
         ],
         "diagram": {
-          "caption": "서로 다른 두 실행을 비교합니다. 실행 A의 generic 발행 예외는 OrderResponse를 막지만 broker 전달은 unknown입니다. 실행 B의 consumer record 예외는 HTTP call stack과 분리되며 retry·DLQ·재전달 정책은 현재 근거로 확정하지 않습니다.",
+          "caption": "실행 A는 publisher 예외에서 HTTP 응답을 멈추고 delivery를 unknown으로 남깁니다. 실행 B는 consumer 기록 실패를 HTTP call stack과 분리합니다.",
           "lanes": [
             {
               "id": "publish-failure-lane",
               "label": "publisher 예외 → 응답 중단 · 전달 unknown",
-              "description": "현재 예제에는 publisher confirm과 주문 영속 저장·발행을 묶는 원자적 경계가 없습니다.",
+              "description": "producer가 확정할 수 있는 HTTP 응답 중단 범위를 다룹니다.",
               "steps": [
                 {
                   "from": "order-service",
@@ -824,7 +824,7 @@ window.visualLabData = {
             {
               "id": "consumer-failure-lane",
               "label": "별도 비교 · consumer record 예외",
-              "description": "event가 consumer에 전달된 다른 실행에서 후속 기록 실패와 HTTP 응답 경계를 분리합니다.",
+              "description": "broker 이후 consumer의 process-local 기록 실패를 별도 실행으로 봅니다.",
               "steps": [
                 {
                   "from": "notification-consumer",
@@ -874,8 +874,8 @@ window.visualLabData = {
             "tone": "blocked"
           }
         ],
-        "evidence": "단위 테스트는 publisher 호출과 consumer 직접 호출을 각각 확인할 뿐 generic 예외의 broker acceptance나 consumer 실패의 retry·DLQ를 검증하지 않습니다. 두 lane은 같은 실행의 연속 단계가 아닙니다.",
-        "outcome": "Publisher 예외는 응답 중단만 확정하고 delivery는 unknown으로 남깁니다. 별도 실행의 consumer 예외는 HTTP와 분리해 보되 복구 정책을 추정하지 않습니다."
+        "evidence": "단위 테스트는 publisher mock 호출과 consumer 직접 호출만 확인합니다. confirm, retry, DLQ와 두 lane의 연속 실행은 검증하지 않습니다.",
+        "outcome": "generic publisher 예외는 응답 중단만 확정하며, consumer 실패는 별도 경계로 보고 복구 정책을 추정하지 않습니다."
       }
     ]
   },
