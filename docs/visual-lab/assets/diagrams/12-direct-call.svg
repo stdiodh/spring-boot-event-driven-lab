@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 510" role="img" aria-labelledby="title desc">
+  <title id="title">후속 작업을 같은 호출 흐름에서 직접 실행</title>
+  <desc id="desc">서비스·정책 레이어의 OrderService가 같은 레이어의 NotificationService 구현을 직접 호출하고, 같은 call stack에서 즉시 결과를 받아 주문 흐름을 계속하는 동기 비교안</desc>
+  <metadata>Source: A&amp;I Sequence 12 theory and direct-call comparison scenario. License: repository policy; no standalone license grant.</metadata>
+  <defs>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0 0 11 5.5 0 11Z" fill="#2955E4"/></marker>
+    <marker id="return-arrow" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0 0 11 5.5 0 11Z" fill="#176F72"/></marker>
+    <style>
+      text{font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;fill:#111B3F}
+      .flow-panel{fill:#FFFFFF;stroke:#94A3B8;stroke-width:2.5}
+      .node{stroke-width:3}
+      .layer-outside{fill:#F1F5F9;stroke:#5B677A}
+      .layer-interface{fill:#E6F4F7;stroke:#0E7490}
+      .layer-application{fill:#F2EDFF;stroke:#6D43A8}
+      .layer-resource{fill:#EAF5EE;stroke:#2C7352}
+      .layer-integration{fill:#FFF4D6;stroke:#926000}
+      .layer-runtime{fill:#EEF2F7;stroke:#52627A}
+      [data-layer="outside"] .layer{fill:#5B677A}
+      [data-layer="resource"] .layer{fill:#2C7352}
+      .call{fill:none;stroke:#2955E4;stroke-width:4;marker-end:url(#arrow)}
+      .return{fill:none;stroke:#176F72;stroke-width:4;marker-end:url(#return-arrow)}
+      .excluded{fill:#F6F7FA;stroke:#64748B;stroke-width:2.5;stroke-dasharray:9 7}
+      .title{font-size:29px;font-weight:850}
+      .sub{font-size:24px;font-weight:650;fill:#4B587C}
+      .layer{font-size:24px;font-weight:850;fill:#4B587C;text-anchor:middle}
+      .name{font-size:24px;font-weight:850;text-anchor:middle}
+      .body{font-size:24px;font-weight:650;fill:#4B587C;text-anchor:middle}
+      .arrow-label{font-size:24px;font-weight:850;fill:#0C2691;text-anchor:middle}
+      .note{font-size:24px;font-weight:800;text-anchor:middle}
+    </style>
+  </defs>
+  <rect width="720" height="510" rx="22" fill="#F8F9FB"/>
+  <text x="22" y="43" class="title">직접 호출 · 같은 call stack에서 완료</text>
+  <text x="22" y="75" class="sub">후속 작업 하나의 즉시 결과가 필요할 때 비교하는 경로</text>
+
+  <g data-semantic="lane">
+    <rect x="20" y="100" width="680" height="292" rx="16" class="flow-panel"/>
+  </g>
+  <g data-layer="application">
+    <rect x="140" y="122" width="440" height="88" rx="14" class="node layer-application"/>
+    <text x="360" y="150" class="layer">서비스·정책</text>
+    <text x="360" y="184" class="name">OrderService</text>
+  </g>
+  <path d="M250 210V256" class="call"/>
+  <text x="155" y="240" class="arrow-label">직접 호출</text>
+  <path d="M470 266V220" class="return"/>
+  <text x="565" y="240" class="arrow-label">즉시 결과</text>
+  <g data-layer="application">
+    <rect x="140" y="266" width="440" height="88" rx="14" class="node layer-application"/>
+    <text x="360" y="294" class="layer">서비스·정책</text>
+    <text x="360" y="328" class="name">NotificationService</text>
+  </g>
+  <text x="360" y="382" class="body">같은 thread · 주문이 알림 구현을 직접 앎</text>
+
+  <g data-semantic="state">
+    <rect x="110" y="418" width="500" height="70" rx="12" class="excluded"/>
+    <text x="360" y="447" class="note">RabbitMQ 미사용 · 동기 경로</text>
+    <text x="360" y="476" class="note">주문과 알림 책임은 직접 결합</text>
+  </g>
+</svg>

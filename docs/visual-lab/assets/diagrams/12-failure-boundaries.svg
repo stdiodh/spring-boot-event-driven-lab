@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">publisher 실패와 consumer 실패의 서로 다른 경계</title>
+  <desc id="desc">서비스·정책 OrderService가 연동·메시징 RabbitTemplate을 호출할 때 publisher 예외가 발생하면 HTTP 응답은 중단되지만 broker 전달 상태는 확정되지 않고, broker 전달 뒤 Consumer와 NotificationService에서 난 실패는 HTTP 응답과 별도 경계에서 관찰되는 비교</desc>
+  <metadata>Source: A&amp;I Sequence 12 theory, implementation, checklist and failure-boundary scenario. License: repository policy; no standalone license grant.</metadata>
+  <defs>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0 0 11 5.5 0 11Z" fill="#2955E4"/></marker>
+    <marker id="async-arrow" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="10" refY="5.5" orient="auto"><path d="M0 0 11 5.5 0 11Z" fill="#52627A"/></marker>
+    <style>
+      text{font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;fill:#111B3F}
+      .lane{fill:#FFFFFF;stroke:#94A3B8;stroke-width:2.5}
+      .node{stroke-width:2.5}
+      .layer-outside{fill:#F1F5F9;stroke:#5B677A}
+      .layer-interface{fill:#E6F4F7;stroke:#0E7490}
+      .layer-application{fill:#F2EDFF;stroke:#6D43A8}
+      .layer-resource{fill:#EAF5EE;stroke:#2C7352}
+      .layer-integration{fill:#FFF4D6;stroke:#926000}
+      .layer-runtime{fill:#EEF2F7;stroke:#52627A}
+      [data-layer="outside"] .layer{fill:#5B677A}
+      [data-layer="resource"] .layer{fill:#2C7352}
+      .flow{fill:none;stroke:#2955E4;stroke-width:4;marker-end:url(#arrow)}
+      .async{fill:none;stroke:#52627A;stroke-width:3;stroke-dasharray:9 7;marker-end:url(#async-arrow)}
+      .failure{fill:#FFF1F2;stroke:#B4233C;stroke-width:2.5}
+      .title{font-size:29px;font-weight:850}
+      .sub{font-size:24px;font-weight:650;fill:#4B587C}
+      .lane-name{font-size:24px;font-weight:900;fill:#0C2691}
+      .layer{font-size:24px;font-weight:850;fill:#4B587C;text-anchor:middle}
+      .name{font-size:24px;font-weight:850;text-anchor:middle}
+      .body{font-size:24px;font-weight:650;fill:#4B587C;text-anchor:middle}
+      .danger{font-size:24px;font-weight:900;fill:#8F1830;text-anchor:middle}
+      .danger-body{font-size:24px;font-weight:700;fill:#8F1830;text-anchor:middle}
+    </style>
+  </defs>
+  <rect width="720" height="720" rx="22" fill="#F8F9FB"/>
+  <text x="22" y="43" class="title">서로 다른 두 실패 경계</text>
+  <text x="22" y="75" class="sub">HTTP 흐름과 consumer 흐름에 미치는 영향이 다르다</text>
+
+  <g data-semantic="lane">
+    <rect x="18" y="100" width="684" height="260" rx="16" class="lane"/>
+    <text x="38" y="134" class="lane-name">A · publisher 호출에서 예외</text>
+  </g>
+  <g data-layer="application">
+    <rect x="48" y="158" width="270" height="100" rx="12" class="node layer-application"/>
+    <text x="183" y="185" class="layer">서비스·정책</text>
+    <text x="183" y="217" class="name">OrderService</text>
+    <text x="183" y="245" class="body">publish 호출</text>
+  </g>
+  <path d="M318 208h77" class="flow"/>
+  <g data-layer="integration">
+    <rect x="402" y="158" width="270" height="100" rx="12" class="node layer-integration"/>
+    <text x="537" y="185" class="layer">연동·메시징</text>
+    <text x="537" y="217" class="name">RabbitTemplate</text>
+    <text x="537" y="245" class="body">generic exception</text>
+  </g>
+  <g data-semantic="state">
+    <rect x="48" y="280" width="624" height="62" rx="12" class="failure"/>
+    <text x="360" y="306" class="danger">× publisher 예외 → HTTP 응답 중단</text>
+    <text x="360" y="333" class="danger-body">broker 전달 상태는 확정할 수 없음</text>
+  </g>
+
+  <g data-semantic="lane">
+    <rect x="18" y="382" width="684" height="310" rx="16" class="lane"/>
+    <text x="38" y="416" class="lane-name">B · broker 전달 뒤 consumer 처리 예외</text>
+  </g>
+  <g data-layer="integration">
+    <rect x="48" y="442" width="170" height="104" rx="12" class="node layer-integration"/>
+    <text x="133" y="469" class="layer">메시징</text>
+    <text x="133" y="501" class="name">RabbitMQ</text>
+    <text x="133" y="530" class="body">delivered</text>
+  </g>
+  <path d="M218 494h32" class="async"/>
+  <g data-layer="integration">
+    <rect x="257" y="442" width="170" height="104" rx="12" class="node layer-integration"/>
+    <text x="342" y="469" class="layer">메시징</text>
+    <text x="342" y="501" class="name">Consumer</text>
+    <text x="342" y="530" class="body">record 호출</text>
+  </g>
+  <path d="M427 494h32" class="async"/>
+  <g data-layer="application">
+    <rect x="466" y="442" width="206" height="104" rx="12" class="node layer-application"/>
+    <text x="569" y="469" class="layer">서비스·정책</text>
+    <text x="569" y="501" class="name">Notification</text>
+    <text x="569" y="530" class="body">Service · 알림 기록</text>
+  </g>
+  <path d="M569 546v24" class="async"/>
+  <g data-semantic="state">
+    <rect x="148" y="578" width="424" height="82" rx="12" class="failure"/>
+    <text x="360" y="610" class="danger">× record 실패 · HTTP와 별도</text>
+    <text x="360" y="642" class="danger-body">consumer 처리 경계에서 관찰</text>
+  </g>
+</svg>

@@ -38,6 +38,7 @@ window.visualLabData = {
         "icon": "client",
         "kind": "request actor",
         "role": "주문 생성과 알림 조회 요청",
+        "systemLayer": "outside",
         "boundary": "HTTP client"
       },
       "order-controller": {
@@ -45,6 +46,7 @@ window.visualLabData = {
         "icon": "api",
         "kind": "API boundary",
         "role": "POST 주문 요청과 GET 알림 조회 입구",
+        "systemLayer": "interface",
         "boundary": "Request/response"
       },
       "order-service": {
@@ -52,6 +54,7 @@ window.visualLabData = {
         "icon": "service",
         "kind": "producer service",
         "role": "AtomicLong id와 주문 결과, event 생성",
+        "systemLayer": "application",
         "boundary": "Producer",
         "codePointIds": [
           "event-dto"
@@ -62,6 +65,7 @@ window.visualLabData = {
         "icon": "event",
         "kind": "publisher",
         "role": "exchange와 routing key를 정해 전송 API 호출",
+        "systemLayer": "integration",
         "boundary": "Producer",
         "codePointIds": [
           "event-publish"
@@ -72,6 +76,7 @@ window.visualLabData = {
         "icon": "event",
         "kind": "publisher client",
         "role": "convertAndSend 호출과 반환을 관찰하는 client-side 경계",
+        "systemLayer": "integration",
         "boundary": "Publisher client",
         "codePointIds": [
           "event-publish"
@@ -82,6 +87,7 @@ window.visualLabData = {
         "icon": "broker",
         "kind": "message router",
         "role": "routing key와 binding으로 queue 선택",
+        "systemLayer": "integration",
         "boundary": "Broker"
       },
       "notification-queue": {
@@ -89,6 +95,7 @@ window.visualLabData = {
         "icon": "queue",
         "kind": "message queue",
         "role": "consumer가 받을 event 보관",
+        "systemLayer": "integration",
         "boundary": "Broker"
       },
       "notification-consumer": {
@@ -96,6 +103,7 @@ window.visualLabData = {
         "icon": "consumer",
         "kind": "event consumer",
         "role": "queue event를 받아 알림 책임 호출",
+        "systemLayer": "interface",
         "boundary": "Consumer",
         "codePointIds": [
           "event-consume"
@@ -106,6 +114,7 @@ window.visualLabData = {
         "icon": "service",
         "kind": "consumer service",
         "role": "orderId 기준 알림 생성과 조회",
+        "systemLayer": "application",
         "boundary": "Consumer",
         "codePointIds": [
           "notification-deduplicate"
@@ -116,6 +125,7 @@ window.visualLabData = {
         "icon": "memory",
         "kind": "process-local state",
         "role": "현재 process에서만 putIfAbsent 중복 방지",
+        "systemLayer": "resource",
         "boundary": "In-memory state"
       },
       "notification-query": {
@@ -123,6 +133,7 @@ window.visualLabData = {
         "icon": "api",
         "kind": "observation boundary",
         "role": "현재 process의 알림 결과 조회",
+        "systemLayer": "interface",
         "boundary": "Observed result"
       },
       "duplicate-evidence": {
@@ -130,6 +141,7 @@ window.visualLabData = {
         "icon": "evidence",
         "kind": "limited idempotency evidence",
         "role": "같은 orderId를 현재 process에서 한 건으로 유지",
+        "systemLayer": "resource",
         "boundary": "In-memory evidence"
       },
       "consumer-unit-test": {
@@ -137,6 +149,7 @@ window.visualLabData = {
         "icon": "test",
         "kind": "direct unit caller",
         "role": "broker와 HTTP 없이 consumer를 직접 호출하고 getAll을 확인",
+        "systemLayer": "outside",
         "boundary": "Unit test"
       },
       "publish-failure": {
@@ -144,6 +157,7 @@ window.visualLabData = {
         "icon": "evidence",
         "kind": "failure evidence",
         "role": "generic 발행 예외로 응답은 중단되지만 broker 전달 상태는 미확정",
+        "systemLayer": "integration",
         "boundary": "Producer"
       },
       "consumer-failure": {
@@ -151,6 +165,7 @@ window.visualLabData = {
         "icon": "evidence",
         "kind": "consumer-side failure evidence",
         "role": "record(event) 예외 · HTTP 응답과 별도 실패 경계",
+        "systemLayer": "interface",
         "boundary": "Consumer"
       }
     },
@@ -159,6 +174,11 @@ window.visualLabData = {
         "id": "event-direct-call",
         "label": "후속 작업 1개·즉시 결과 필요",
         "flowId": "direct-vs-event",
+        "visual": {
+          "src": "../../assets/diagrams/12-direct-call.svg",
+          "alt": "OrderService가 NotificationService를 직접 호출하고 즉시 결과를 받는 동기 경로",
+          "caption": "후속 작업이 하나이고 즉시 결과가 필요할 때 직접 호출이 만드는 짧은 결합 경로입니다."
+        },
         "tone": "signal",
         "prompt": "후속 작업이 하나이고 즉시 결과가 필요하다고 가정해 직접 호출 경로를 비교합니다.",
         "observationTitle": "호출자가 후속 작업의 즉시 결과를 기다리는 동기 경로",
@@ -249,6 +269,11 @@ window.visualLabData = {
         "id": "event-broker-delivered",
         "label": "RabbitMQ 실행·주문 요청",
         "flowId": "order-event-flow",
+        "visual": {
+          "src": "../../assets/diagrams/12-response-event-fork.svg",
+          "alt": "주문 HTTP 응답 경로와 RabbitMQ 이벤트 소비 경로가 분기되는 비동기 흐름",
+          "caption": "publisher 호출 이후 HTTP 응답과 broker·consumer 처리가 서로 다른 시간선으로 갈라집니다."
+        },
         "tone": "recovered",
         "prompt": "RabbitMQ를 실행한 상태에서 `POST /event-orders` 요청을 보냈습니다. publish 시도 뒤 두 경로가 어떻게 갈라질지 예측합니다.",
         "observationTitle": "producer continuation과 broker delivery의 상대 순서를 고정하지 않는 경로",
@@ -595,6 +620,11 @@ window.visualLabData = {
         "id": "event-duplicate-delivery",
         "label": "같은 orderId 이벤트 2회",
         "flowId": "order-event-flow",
+        "visual": {
+          "src": "../../assets/diagrams/12-duplicate-idempotency.svg",
+          "alt": "같은 orderId 이벤트 두 건이 process-local map에서 한 건으로 합쳐지는 중복 처리 흐름",
+          "caption": "putIfAbsent는 현재 프로세스 안에서만 같은 orderId의 중복 알림을 막습니다."
+        },
         "tone": "warning",
         "prompt": "같은 orderId 이벤트가 두 번 소비될 때 현재 중복 방지의 범위를 확인합니다.",
         "observationTitle": "같은 orderId를 process-local map에서 한 건으로 유지하는 경로",
@@ -719,6 +749,11 @@ window.visualLabData = {
         "id": "event-publish-failed",
         "label": "publisher·consumer 실패 경계",
         "flowId": "order-event-flow",
+        "visual": {
+          "src": "../../assets/diagrams/12-failure-boundaries.svg",
+          "alt": "publisher 예외와 consumer 기록 예외가 서로 다른 실행 경계에서 발생하는 흐름",
+          "caption": "발행 실패의 전달 상태 unknown과 소비 실패의 독립 경계를 나누어 확인합니다."
+        },
         "tone": "blocked",
         "prompt": "`convertAndSend` generic 예외와 별도의 consumer `record(event)` 예외를 비교합니다. 각 실패에서 확정할 수 있는 상태를 예측합니다.",
         "observationTitle": "publisher 예외의 전달 unknown과 consumer 예외의 독립 실패 경계를 비교하는 경로",

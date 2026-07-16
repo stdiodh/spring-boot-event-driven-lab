@@ -3,6 +3,9 @@
 ## Topic diagram
 
 - `diagrams/12-response-event-fork.svg`: Sequence 12의 `docs/theory.md`, `docs/implementation.md`, `docs/checklist.md`를 바탕으로 2026-07-15에 프로젝트 내부에서 제작했습니다.
+- `diagrams/12-direct-call.svg`: 같은 문서의 동기 직접 호출 비교를 바탕으로 2026-07-16에 프로젝트 내부에서 제작했습니다.
+- `diagrams/12-duplicate-idempotency.svg`: 같은 문서의 현재 process 한정 `putIfAbsent` 중복 방지 범위를 바탕으로 2026-07-16에 프로젝트 내부에서 제작했습니다.
+- `diagrams/12-failure-boundaries.svg`: 같은 문서의 publisher와 consumer 실패 경계 구분을 바탕으로 2026-07-16에 프로젝트 내부에서 제작했습니다.
 
 ## System icons
 

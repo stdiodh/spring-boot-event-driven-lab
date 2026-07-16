@@ -1,61 +1,109 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 650" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 680" role="img" aria-labelledby="title desc">
   <title id="title">Publish 시도 뒤 갈라지는 producer와 broker 경로</title>
-  <desc id="desc">POST event-orders 요청이 RabbitTemplate publish 시도까지 간 뒤, 정상 반환 시 HTTP 응답을 만드는 producer 경로와 accepted·routed된 경우 consumer로 전달되는 broker 경로가 독립적으로 진행됩니다. HTTP 응답 완료와 consumer 완료의 상대 순서는 보장되지 않습니다.</desc>
+  <desc id="desc">입구·출구 Controller와 서비스·정책 Service를 지난 요청이 연동·메시징 RabbitTemplate publish 시도 뒤, producer 정상 반환에 따른 HTTP 응답 경로와 accepted·routed된 broker delivery 경로로 갈라지며 두 완료 순서는 보장되지 않는 흐름</desc>
   <metadata>Source: A&amp;I Sequence 12 theory, implementation, checklist, OrderEventController, OrderService, EventPublisherService. License: repository policy; no standalone license grant.</metadata>
   <defs>
-    <marker id="arrow-blue" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-      <path d="M0 0 10 5 0 10Z" fill="#2955e4"/>
-    </marker>
-    <marker id="arrow-teal" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-      <path d="M0 0 10 5 0 10Z" fill="#087f78"/>
-    </marker>
+    <marker id="arrow" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#2955E4"/></marker>
+    <marker id="async-arrow" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0 10 5 0 10Z" fill="#52627A"/></marker>
+    <style>
+      text{font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;fill:#111B3F}
+      .lane{fill:#FFFFFF;stroke:#94A3B8;stroke-width:2.5}
+      .node{stroke-width:2.5}
+      .layer-outside{fill:#F1F5F9;stroke:#5B677A}
+      .layer-interface{fill:#E6F4F7;stroke:#0E7490}
+      .layer-application{fill:#F2EDFF;stroke:#6D43A8}
+      .layer-resource{fill:#EAF5EE;stroke:#2C7352}
+      .layer-integration{fill:#FFF4D6;stroke:#926000}
+      .layer-runtime{fill:#EEF2F7;stroke:#52627A}
+      [data-layer="outside"] .layer{fill:#5B677A}
+      [data-layer="resource"] .layer{fill:#2C7352}
+      .state{fill:#F6F7FA;stroke:#64748B;stroke-width:2}
+      .flow{fill:none;stroke:#2955E4;stroke-width:4;marker-end:url(#arrow)}
+      .async{fill:none;stroke:#52627A;stroke-width:4;stroke-dasharray:9 7;marker-end:url(#async-arrow)}
+      .title{font-size:29px;font-weight:850}
+      .layer{font-size:24px;font-weight:850;fill:#4B587C;text-anchor:middle}
+      .name{font-size:24px;font-weight:850;text-anchor:middle}
+      .body{font-size:24px;font-weight:650;fill:#4B587C;text-anchor:middle}
+      .lane-name{font-size:24px;font-weight:900;fill:#0C2691;text-anchor:middle}
+      .lane-desc{font-size:24px;font-weight:700;fill:#4B587C;text-anchor:middle}
+      .state-name{font-size:24px;font-weight:850;text-anchor:middle}
+      .complete{font-size:24px;font-weight:850;fill:#FFFFFF;text-anchor:middle}
+    </style>
   </defs>
+  <rect width="720" height="680" rx="22" fill="#F8F9FB"/>
+  <text x="22" y="43" class="title">발행 시도 뒤 갈라지는 두 경로</text>
 
-  <rect width="720" height="650" rx="22" fill="#f1f7ff"/>
-  <text x="24" y="45" fill="#111b3f" font-family="system-ui, sans-serif" font-size="29" font-weight="850">PUBLISH ATTEMPT → TWO LANES</text>
-  <text x="696" y="43" text-anchor="end" fill="#6473a0" font-family="ui-monospace, monospace" font-size="24" font-weight="700">SEQ 12</text>
+  <g data-layer="interface">
+    <rect x="18" y="72" width="202" height="112" rx="14" class="node layer-interface"/>
+    <text x="119" y="98" class="layer">입구·출구</text>
+    <text x="119" y="130" class="name">CONTROLLER</text>
+    <text x="119" y="163" class="body">/event-orders</text>
+  </g>
+  <path d="M220 128h31" class="flow"/>
+  <g data-layer="application">
+    <rect x="258" y="72" width="184" height="112" rx="14" class="node layer-application"/>
+    <text x="350" y="98" class="layer">서비스·정책</text>
+    <text x="350" y="130" class="name">OrderService</text>
+    <text x="350" y="163" class="body">event 생성</text>
+  </g>
+  <path d="M442 128h31" class="flow"/>
+  <g data-layer="integration">
+    <rect x="480" y="72" width="222" height="112" rx="14" class="node layer-integration"/>
+    <text x="591" y="98" class="layer">연동·메시징</text>
+    <text x="591" y="130" class="name">RabbitTemplate</text>
+    <text x="591" y="163" class="body">publish 시도</text>
+  </g>
 
-  <rect x="20" y="78" width="200" height="104" rx="14" fill="#ffffff" stroke="#6473a0" stroke-width="3"/>
-  <text x="120" y="118" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">CONTROLLER</text>
-  <text x="120" y="157" text-anchor="middle" fill="#111b3f" font-family="ui-monospace, monospace" font-size="24">/event-orders</text>
-  <path d="M220 130H252" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow-blue)"/>
+  <path d="M591 184v36H184v28" class="flow"/>
+  <path d="M591 184v64" class="async"/>
 
-  <rect x="260" y="78" width="180" height="104" rx="14" fill="#ffffff" stroke="#0c2691" stroke-width="3"/>
-  <text x="350" y="118" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">SERVICE</text>
-  <text x="350" y="157" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24">event 생성</text>
-  <path d="M440 130H472" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow-blue)"/>
+  <g data-semantic="lane">
+    <rect x="18" y="256" width="333" height="326" rx="16" class="lane"/>
+    <text x="184.5" y="289" class="lane-name">생산자 응답</text>
+    <text x="184.5" y="316" class="lane-desc">호출 정상 반환 조건</text>
+  </g>
+  <g data-semantic="state">
+    <rect x="40" y="335" width="289" height="54" rx="10" class="state"/>
+    <text x="184.5" y="368" class="state-name">호출 반환 ≠ consumer 완료</text>
+  </g>
+  <path d="M184.5 389v18" class="flow"/>
+  <g data-layer="application">
+    <rect x="40" y="414" width="289" height="68" rx="10" class="node layer-application"/>
+    <text x="184.5" y="438" class="layer">서비스·정책</text>
+    <text x="184.5" y="468" class="name">OrderResponse 생성</text>
+  </g>
+  <path d="M184.5 482v18" class="flow"/>
+  <g data-layer="interface">
+    <rect x="40" y="500" width="289" height="68" rx="10" class="node layer-interface"/>
+    <text x="184.5" y="527" class="layer">입구·출구</text>
+    <text x="184.5" y="558" class="name">201 + JSON</text>
+  </g>
 
-  <rect x="480" y="78" width="220" height="104" rx="14" fill="#ecfbfa" stroke="#0c2691" stroke-width="3"/>
-  <text x="590" y="118" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">RabbitTemplate</text>
-  <text x="590" y="157" text-anchor="middle" fill="#111b3f" font-family="ui-monospace, monospace" font-size="24">publish 시도</text>
+  <g data-semantic="lane">
+    <rect x="369" y="256" width="333" height="326" rx="16" class="lane"/>
+    <text x="535.5" y="289" class="lane-name">브로커 전달</text>
+    <text x="535.5" y="316" class="lane-desc">accepted·routed 조건</text>
+  </g>
+  <g data-layer="integration">
+    <rect x="391" y="335" width="289" height="68" rx="10" class="node layer-integration"/>
+    <text x="535.5" y="359" class="layer">연동·메시징</text>
+    <text x="535.5" y="389" class="name">RabbitMQ exchange</text>
+  </g>
+  <path d="M535.5 403v16" class="async"/>
+  <g data-layer="integration">
+    <rect x="391" y="426" width="289" height="62" rx="10" class="node layer-integration"/>
+    <text x="535.5" y="449" class="layer">연동·메시징</text>
+    <text x="535.5" y="477" class="name">Order event queue</text>
+  </g>
+  <path d="M535.5 488v16" class="async"/>
+  <g data-layer="integration">
+    <rect x="391" y="504" width="289" height="64" rx="10" class="node layer-integration"/>
+    <text x="535.5" y="529" class="layer">연동·메시징</text>
+    <text x="535.5" y="558" class="name">Consumer adapter</text>
+  </g>
 
-  <path d="M590 182V218H185V250" fill="none" stroke="#2955e4" stroke-width="4" marker-end="url(#arrow-blue)"/>
-  <path d="M590 182V250" fill="none" stroke="#087f78" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#arrow-teal)"/>
-
-  <rect x="20" y="258" width="330" height="300" rx="16" fill="#ffffff" stroke="#2955e4" stroke-width="3"/>
-  <text x="185" y="294" text-anchor="middle" fill="#0c2691" font-family="system-ui, sans-serif" font-size="24" font-weight="900">PRODUCER RETURN</text>
-  <text x="185" y="323" text-anchor="middle" fill="#6473a0" font-family="system-ui, sans-serif" font-size="24">정상 반환 시</text>
-  <rect x="42" y="340" width="286" height="52" rx="11" fill="#eaf0fb" stroke="#6473a0" stroke-width="2"/>
-  <text x="185" y="374" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">호출 정상 반환</text>
-  <path d="M185 392V410" stroke="#2955e4" stroke-width="3" marker-end="url(#arrow-blue)"/>
-  <rect x="42" y="418" width="286" height="52" rx="11" fill="#ffffff" stroke="#6473a0" stroke-width="2"/>
-  <text x="185" y="452" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">OrderResponse</text>
-  <path d="M185 470V488" stroke="#2955e4" stroke-width="3" marker-end="url(#arrow-blue)"/>
-  <rect x="42" y="496" width="286" height="44" rx="10" fill="#0c2691"/>
-  <text x="185" y="527" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24" font-weight="800">201 + JSON</text>
-
-  <rect x="370" y="258" width="330" height="300" rx="16" fill="#ffffff" stroke="#087f78" stroke-width="3"/>
-  <text x="535" y="294" text-anchor="middle" fill="#075e59" font-family="system-ui, sans-serif" font-size="24" font-weight="900">BROKER DELIVERY</text>
-  <text x="535" y="323" text-anchor="middle" fill="#6473a0" font-family="system-ui, sans-serif" font-size="24">accepted · routed일 때</text>
-  <rect x="392" y="340" width="286" height="52" rx="11" fill="#ecfbfa" stroke="#6473a0" stroke-width="2"/>
-  <text x="535" y="374" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">RabbitMQ exchange</text>
-  <path d="M535 392V410" stroke="#087f78" stroke-width="3" marker-end="url(#arrow-teal)"/>
-  <rect x="392" y="418" width="286" height="52" rx="11" fill="#ffffff" stroke="#6473a0" stroke-width="2"/>
-  <text x="535" y="452" text-anchor="middle" fill="#111b3f" font-family="system-ui, sans-serif" font-size="24" font-weight="800">QUEUE</text>
-  <path d="M535 470V488" stroke="#087f78" stroke-width="3" marker-end="url(#arrow-teal)"/>
-  <rect x="392" y="496" width="286" height="44" rx="10" fill="#087f78"/>
-  <text x="535" y="527" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24" font-weight="800">CONSUMER</text>
-
-  <rect x="20" y="580" width="680" height="50" rx="14" fill="#111b3f"/>
-  <text x="360" y="613" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="24" font-weight="850">정상 반환 ≠ broker acceptance · 두 완료 순서 미보장</text>
+  <g data-semantic="evidence">
+    <rect x="18" y="610" width="684" height="48" rx="13" fill="#111B3F"/>
+    <text x="360" y="641" class="complete">정상 반환 ≠ broker acceptance · 완료 순서 미보장</text>
+  </g>
 </svg>
